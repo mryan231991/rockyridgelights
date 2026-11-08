@@ -30,7 +30,7 @@ function nightKey(d = new Date()) { const p = etParts(new Date(d.getTime() - 6 *
 function load() {
   const empty = { updated: null, months: {} };
   if (!existsSync(FILE)) return empty;
-  try { const j = JSON.parse(readFileSync(FILE, 'utf8')); j.months ??= {}; delete j.seasons; return j; } catch { return empty; }
+  try { const j = JSON.parse(readFileSync(FILE, 'utf8')); j.months ??= {}; delete j.seasons; delete j.recent; return j; } catch { return empty; }
 }
 /** Stats are kept per month (by show night, YYYY-MM) so test nights and Halloween/Christmas never mix. */
 function bucket(stats, night) {
@@ -83,9 +83,6 @@ while (Date.now() - started < MAX_RUN_MS) {
     const playing = show.playingNowSequence?.name || show.playingNow || '';
     if (prevPlaying !== null && playing && playing !== prevPlaying) {
       bump(s.plays, playing); bump(n.plays, playing); dirty = true;
-      // short play log for the page's "Just played" list (tonight only, last 10)
-      if (stats.recent?.night !== night) stats.recent = { night, plays: [] };
-      stats.recent.plays = [...stats.recent.plays, { name: playing, at: new Date().toISOString() }].slice(-10);
       console.log(new Date().toISOString(), 'play', playing);
     }
     prevQueue = queue; prevPlaying = playing;

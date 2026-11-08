@@ -542,7 +542,7 @@ function render() {
   $('npMine').hidden = !(nowName && mine.includes(nowName));
   if (nowName && nowName !== lastPlaying) {
     if (lastPlaying !== null && mine.includes(nowName)) { toast('🎉 Your song is playing now!', 'ok', 5000); navigator.vibrate?.([200, 100, 200]); }
-    if (lastPlaying !== null) notePlay(nowName, Date.now());
+    if (lastPlaying) notePlay(lastPlaying, Date.now());   // the song that just finished
     lastPlaying = nowName;
   }
 
@@ -622,10 +622,9 @@ function renderSongs(voting) {
   $('groups').innerHTML = rows.length ? html : `<p class="no-results">No songs match “${esc(query)}”.</p>`;
 }
 
-/* ---------- Just played: songs this phone saw start, plus the recorder's log ---------- */
+/* ---------- Just played: songs this phone saw start (kept through refreshes, per show night) ---------- */
 const nightNow = () => { const d = new Date(Date.now() - 6 * 3600e3); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 let seenPlays = (() => { const r = store.get('rrl-recent', null); return !DEMO && r?.night === nightNow() ? r.list : []; })();
-let loggedPlays = [];
 function notePlay(name, at) {
   if (!name) return;
   seenPlays = [...seenPlays, { name, at }].slice(-15);
@@ -633,10 +632,9 @@ function notePlay(name, at) {
 }
 function renderRecent(nowName) {
   // merge, newest first; the same song within 2 minutes is one play
-  const all = [...seenPlays, ...loggedPlays].sort((a, b) => b.at - a.at);
+  const all = [...seenPlays].sort((a, b) => b.at - a.at);
   const plays = [];
   for (const p of all) if (!plays.some((x) => x.name === p.name && Math.abs(x.at - p.at) < 120e3)) plays.push(p);
-  if (plays[0]?.name === nowName) plays.shift();          // that's the one playing now
   const list = plays.filter((p) => Date.now() - p.at < 90 * 60e3).slice(0, 3);
   $('recent').hidden = !list.length;
   $('recentList').innerHTML = list.map((p) => {
@@ -810,7 +808,6 @@ async function loadStats() {
     const night = st.months?.[mk]?.nights?.[nk];
     const top = (obj, n, min) => new Map(Object.entries(obj || {}).filter(([, c]) => c >= min).sort((a, b) => b[1] - a[1]).slice(0, n));
     pop = { fav: top(sum, 5, 3), hot: top(night?.requests, 3, 2), total, tonight: night?.totalRequests || 0 };
-    loggedPlays = st.recent?.night === nk ? (st.recent.plays || []).map((p) => ({ name: p.name, at: Date.parse(p.at) })).filter((p) => p.at) : [];
     if (show) render();
   } catch {}
 }
