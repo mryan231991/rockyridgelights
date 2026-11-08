@@ -1,1 +1,163 @@
-{"updated":null,"months":{}}
+{
+ "updated": "2026-11-08T16:50:00Z",
+ "months": {
+  "2026-11": {
+   "note": "FAKE TEST DATA for November 2026 testing",
+   "requests": {
+    "KPOP Demon Hunters Mega Medley xLights Sequence": 11,
+    "Best of Frozen v2": 18,
+    "Pirates": 2,
+    "Bluey Dance Mode": 14,
+    "disney mashup": 14,
+    "How Far I'll Go from Moana": 3,
+    "Taylor Swift Compilation 2025": 11,
+    "Queen Mashup Final Version_2": 8,
+    "John William mash": 3,
+    "Best of Wicked Part 1 Medley - From Halloween": 6,
+    "My Songs Know What You Did In The Dark (Light Em Up)": 1,
+    "Carmina Burana": 2,
+    "Danger Zone": 2,
+    "Ghostbusters": 3,
+    "Cold Heart (PNAU Remix)": 1,
+    "Somebody's Watching Me": 1,
+    "Don't Start Now": 1,
+    "Gangnam Style": 2,
+    "September": 1,
+    "Believer": 1
+   },
+   "plays": {
+    "KPOP Demon Hunters Mega Medley xLights Sequence": 11,
+    "Best of Frozen v2": 18,
+    "Pirates": 2,
+    "Bluey Dance Mode": 14,
+    "disney mashup": 14,
+    "How Far I'll Go from Moana": 3,
+    "Taylor Swift Compilation 2025": 11,
+    "Queen Mashup Final Version_2": 8,
+    "John William mash": 3,
+    "Best of Wicked Part 1 Medley - From Halloween": 6,
+    "My Songs Know What You Did In The Dark (Light Em Up)": 1,
+    "Carmina Burana": 2,
+    "Danger Zone": 2,
+    "Ghostbusters": 3,
+    "Cold Heart (PNAU Remix)": 1,
+    "Somebody's Watching Me": 1,
+    "Don't Start Now": 1,
+    "Gangnam Style": 2,
+    "September": 1,
+    "Believer": 1
+   },
+   "totalRequests": 105,
+   "nights": {
+    "2026-11-05": {
+     "requests": {
+      "KPOP Demon Hunters Mega Medley xLights Sequence": 2,
+      "Best of Frozen v2": 3,
+      "Pirates": 1,
+      "Bluey Dance Mode": 2,
+      "disney mashup": 5,
+      "How Far I'll Go from Moana": 1,
+      "Taylor Swift Compilation 2025": 2,
+      "Queen Mashup Final Version_2": 2
+     },
+     "plays": {
+      "KPOP Demon Hunters Mega Medley xLights Sequence": 2,
+      "Best of Frozen v2": 3,
+      "Pirates": 1,
+      "Bluey Dance Mode": 2,
+      "disney mashup": 5,
+      "How Far I'll Go from Moana": 1,
+      "Taylor Swift Compilation 2025": 2,
+      "Queen Mashup Final Version_2": 2
+     },
+     "totalRequests": 18
+    },
+    "2026-11-06": {
+     "requests": {
+      "disney mashup": 6,
+      "John William mash": 1,
+      "Taylor Swift Compilation 2025": 4,
+      "Queen Mashup Final Version_2": 2,
+      "How Far I'll Go from Moana": 1,
+      "Best of Wicked Part 1 Medley - From Halloween": 3,
+      "Best of Frozen v2": 6,
+      "Bluey Dance Mode": 4,
+      "Pirates": 1,
+      "My Songs Know What You Did In The Dark (Light Em Up)": 1,
+      "KPOP Demon Hunters Mega Medley xLights Sequence": 2
+     },
+     "plays": {
+      "disney mashup": 6,
+      "John William mash": 1,
+      "Taylor Swift Compilation 2025": 4,
+      "Queen Mashup Final Version_2": 2,
+      "How Far I'll Go from Moana": 1,
+      "Best of Wicked Part 1 Medley - From Halloween": 3,
+      "Best of Frozen v2": 6,
+      "Bluey Dance Mode": 4,
+      "Pirates": 1,
+      "My Songs Know What You Did In The Dark (Light Em Up)": 1,
+      "KPOP Demon Hunters Mega Medley xLights Sequence": 2
+     },
+     "totalRequests": 31
+    },
+    "2026-11-07": {
+     "requests": {
+      "How Far I'll Go from Moana": 1,
+      "Carmina Burana": 2,
+      "Best of Frozen v2": 6,
+      "Bluey Dance Mode": 4,
+      "Best of Wicked Part 1 Medley - From Halloween": 3,
+      "KPOP Demon Hunters Mega Medley xLights Sequence": 7,
+      "Taylor Swift Compilation 2025": 5,
+      "Danger Zone": 1,
+      "disney mashup": 3,
+      "Queen Mashup Final Version_2": 4,
+      "Ghostbusters": 3,
+      "John William mash": 2,
+      "Cold Heart (PNAU Remix)": 1,
+      "Somebody's Watching Me": 1,
+      "Don't Start Now": 1
+     },
+     "plays": {
+      "How Far I'll Go from Moana": 1,
+      "Carmina Burana": 2,
+      "Best of Frozen v2": 6,
+      "Bluey Dance Mode": 4,
+      "Best of Wicked Part 1 Medley - From Halloween": 3,
+      "KPOP Demon Hunters Mega Medley xLights Sequence": 7,
+      "Taylor Swift Compilation 2025": 5,
+      "Danger Zone": 1,
+      "disney mashup": 3,
+      "Queen Mashup Final Version_2": 4,
+      "Ghostbusters": 3,
+      "John William mash": 2,
+      "Cold Heart (PNAU Remix)": 1,
+      "Somebody's Watching Me": 1,
+      "Don't Start Now": 1
+     },
+     "totalRequests": 44
+    },
+    "2026-11-08": {
+     "requests": {
+      "Bluey Dance Mode": 4,
+      "Best of Frozen v2": 3,
+      "Gangnam Style": 2,
+      "September": 1,
+      "Believer": 1,
+      "Danger Zone": 1
+     },
+     "plays": {
+      "Bluey Dance Mode": 4,
+      "Best of Frozen v2": 3,
+      "Gangnam Style": 2,
+      "September": 1,
+      "Believer": 1,
+      "Danger Zone": 1
+     },
+     "totalRequests": 12
+    }
+   }
+  }
+ }
+}
