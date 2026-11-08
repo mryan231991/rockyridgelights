@@ -8,7 +8,7 @@ import { execSync } from 'node:child_process';
 const SHOW = 'rockyridgelights';
 const API = process.env.RF_API || 'https://remotefalcon.com/remote-falcon-viewer/graphql';
 const POLL_MS = Number(process.env.POLL_MS || 15_000);
-const SAVE_EVERY_MS = 10 * 60_000;          // commit at most every 10 minutes
+const SAVE_EVERY_MS = 10 * 60_000;          // commit at most every 10 minutes (Pages soft limit ~10 builds/hr)
 const MAX_RUN_MS = (Number(process.env.MAX_HOURS || 5.6)) * 3600_000; // Actions jobs stop at 6h
 const OFF_GRACE_MS = Number(process.env.OFF_GRACE_MS || 20 * 60_000);          // stop 20 min after the show turns off
 const NOT_STARTED_MS = 3 * 3600_000;        // stop if the show never turns on within 3h
@@ -83,6 +83,9 @@ while (Date.now() - started < MAX_RUN_MS) {
     const playing = show.playingNowSequence?.name || show.playingNow || '';
     if (prevPlaying !== null && playing && playing !== prevPlaying) {
       bump(s.plays, playing); bump(n.plays, playing); dirty = true;
+      // short play log for the page's "Just played" list (tonight only, last 10)
+      if (stats.recent?.night !== night) stats.recent = { night, plays: [] };
+      stats.recent.plays = [...stats.recent.plays, { name: playing, at: new Date().toISOString() }].slice(-10);
       console.log(new Date().toISOString(), 'play', playing);
     }
     prevQueue = queue; prevPlaying = playing;

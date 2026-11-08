@@ -17,3 +17,15 @@ counts each new request and each song played, and commits the totals to `stats.j
 It stops 20 minutes after the show turns off (or after 3 hours if the show never turns on).
 The page uses `stats.json` for the 🔥 Hot tonight and ⭐ Fan favorites badges and filters.
 Run it by hand from the repo's **Actions** tab → *Record song requests* → **Run workflow**.
+
+## Notice banner
+Edit `notice.json` on GitHub (pencil icon → Commit). Example:
+```json
+{ "message": "Closed tonight for rain — see you tomorrow!", "until": "2026-12-05" }
+```
+`until` is optional (a date means "through the end of that day"). Set `message` to `""` to hide it. Shows within ~5 minutes.
+
+## Visitor stats
+GoatCounter at https://rockyridgelights.goatcounter.com (free, no cookies). Song requests are logged as events (`request/<song>`).
+Tag links with `?utm_source=sign` (yard sign QR) or `?utm_source=facebook` to see where visitors come from.
+Demo mode and `?theme=` previews are not counted.

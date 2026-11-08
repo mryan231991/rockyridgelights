@@ -109,6 +109,14 @@
 
   /* tips */
   .tips-card{padding:16px 18px}
+  .notice{display:flex;gap:12px;align-items:flex-start;text-align:left;padding:14px 18px;border-color:var(--gold);font-weight:500;line-height:1.45}
+  .notice .ni{font-size:20px;line-height:1.2}
+  .recent{margin:14px 0 0;padding:12px 0 0;border-top:1px solid var(--edge);text-align:left}
+  .recent .label{margin-bottom:6px}
+  .recent ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
+  .recent li{display:flex;justify-content:space-between;gap:12px}
+  .recent li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .recent li small{color:var(--muted);flex:none}
   .tips{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;text-align:left}
   .tips li{display:flex;gap:10px;align-items:center;font-size:15px;line-height:1.4;color:var(--muted)}
   .tips li b{color:var(--text)}
@@ -255,6 +263,8 @@
     </div>
   </header>
 
+  <section class="card notice" id="notice" hidden role="status"><span class="ni" aria-hidden="true">📣</span><span id="noticeText"></span></section>
+
   <section class="card tips-card">
     <p class="label">While you watch</p>
     <ul class="tips">
@@ -279,6 +289,7 @@
       <div class="np-art" id="npArt"><span id="npPh">🎄</span></div>
       <div><div class="np-title" id="npTitle">Starting soon</div><div class="np-artist" id="npArtist"></div><div id="npMine" class="np-mine" hidden>Your request! 🎉</div></div>
     </div>
+    <div class="recent" id="recent" hidden><p class="label">Just played</p><ul id="recentList"></ul></div>
   </section>
 
   <section class="card" id="queueCard" hidden>
@@ -403,6 +414,7 @@ const fmtTime = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: 
 
 // Preview another season by adding ?theme=halloween (or christmas) to the URL.
 const forcedTheme = new URLSearchParams(location.search).get('theme');
+const DEMO = new URLSearchParams(location.search).get('demo');
 const season = (forcedTheme && SETTINGS.seasons.find((x) => x.theme === forcedTheme)) || currentSeason();
 const S = season || SETTINGS.offSeason;
 document.documentElement.dataset.theme = S.theme;
@@ -530,6 +542,7 @@ function render() {
   $('npMine').hidden = !(nowName && mine.includes(nowName));
   if (nowName && nowName !== lastPlaying) {
     if (lastPlaying !== null && mine.includes(nowName)) { toast('🎉 Your song is playing now!', 'ok', 5000); navigator.vibrate?.([200, 100, 200]); }
+    if (lastPlaying !== null) notePlay(nowName, Date.now());
     lastPlaying = nowName;
   }
 
@@ -557,6 +570,7 @@ function render() {
     $('seasonStat').hidden = !pop.total;
     $('seasonStat').textContent = pop.total ? `${pop.total.toLocaleString()} song${pop.total === 1 ? '' : 's'} requested ${popScope}${pop.tonight ? ` · ${pop.tonight} tonight` : ''}` : '';
   }
+  renderRecent(nowName);
   renderSongs(voting);
 }
 
@@ -608,6 +622,41 @@ function renderSongs(voting) {
   $('groups').innerHTML = rows.length ? html : `<p class="no-results">No songs match “${esc(query)}”.</p>`;
 }
 
+/* ---------- Just played: songs this phone saw start, plus the recorder's log ---------- */
+const nightNow = () => { const d = new Date(Date.now() - 6 * 3600e3); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+let seenPlays = (() => { const r = store.get('rrl-recent', null); return !DEMO && r?.night === nightNow() ? r.list : []; })();
+let loggedPlays = [];
+function notePlay(name, at) {
+  if (!name) return;
+  seenPlays = [...seenPlays, { name, at }].slice(-15);
+  if (!DEMO) store.set('rrl-recent', { night: nightNow(), list: seenPlays });
+}
+function renderRecent(nowName) {
+  // merge, newest first; the same song within 2 minutes is one play
+  const all = [...seenPlays, ...loggedPlays].sort((a, b) => b.at - a.at);
+  const plays = [];
+  for (const p of all) if (!plays.some((x) => x.name === p.name && Math.abs(x.at - p.at) < 120e3)) plays.push(p);
+  if (plays[0]?.name === nowName) plays.shift();          // that's the one playing now
+  const list = plays.filter((p) => Date.now() - p.at < 90 * 60e3).slice(0, 3);
+  $('recent').hidden = !list.length;
+  $('recentList').innerHTML = list.map((p) => {
+    const s = seqByName(p.name); const m = Math.max(1, Math.round((Date.now() - p.at) / 60e3));
+    return `<li><span>${esc(s?.displayName || p.name)}${s?.artist ? ` · <small>${esc(s.artist)}</small>` : ''}</span><small>${m} min ago</small></li>`;
+  }).join('');
+}
+
+/* ---------- Notice banner: edit notice.json on GitHub ---------- */
+async function loadNotice() {
+  try {
+    const r = await fetch('notice.json?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
+    const n = r.ok ? await r.json() : {};
+    const until = n.until ? Date.parse(/T/.test(n.until) ? n.until : n.until + 'T23:59:59') : null;
+    const show = !!(n.message && n.message.trim()) && (!until || Date.now() < until);
+    $('noticeText').textContent = show ? n.message.trim() : '';
+    $('notice').hidden = !show;
+  } catch {}
+}
+
 let glowUrl = null;
 function setGlow(url) {
   if (url === glowUrl) return; glowUrl = url;
@@ -648,7 +697,6 @@ async function locationArgs() {
   return {};
 }
 /* ---------- Demo mode: ?demo=1 (jukebox) or ?demo=vote. Fakes a running show; nothing is sent to RF. ---------- */
-const DEMO = new URLSearchParams(location.search).get('demo');
 let demo = null;
 function applyDemo(sh) {
   const vis = (sh.sequences || []).filter((x) => x.visible);
@@ -684,7 +732,7 @@ async function pick(name, rowEl) {
     const err = res?.errors?.[0]?.message;
     if (err) { toast((ERRORS[err] || (() => 'Something went wrong. Please try again.'))(), 'err'); return; }
     if (voting) toast('🗳️ Vote counted!', 'ok');
-    else { toast(S.okMsg, 'ok'); mine = [...new Set([...mine, name])]; store.set(tonightKey(), mine); }
+    else { toast(S.okMsg, 'ok'); mine = [...new Set([...mine, name])]; store.set(tonightKey(), mine); countEvent('request/' + name); }
     await refresh();
   } catch (e) {
     if (e.message === 'CANCELLED') return;
@@ -762,6 +810,7 @@ async function loadStats() {
     const night = st.months?.[mk]?.nights?.[nk];
     const top = (obj, n, min) => new Map(Object.entries(obj || {}).filter(([, c]) => c >= min).sort((a, b) => b[1] - a[1]).slice(0, n));
     pop = { fav: top(sum, 5, 3), hot: top(night?.requests, 3, 2), total, tonight: night?.totalRequests || 0 };
+    loggedPlays = st.recent?.night === nk ? (st.recent.plays || []).map((p) => ({ name: p.name, at: Date.parse(p.at) })).filter((p) => p.at) : [];
     if (show) render();
   } catch {}
 }
@@ -772,7 +821,14 @@ function badges(s) {
   return b;
 }
 
-(async () => { await refresh(); schedule(); if (show && !DEMO) recordVisit(); loadStats(); setInterval(loadStats, 5 * 60000); })();
+(async () => { await refresh(); schedule(); if (show && !DEMO) recordVisit(); loadStats(); loadNotice(); setInterval(() => { loadStats(); loadNotice(); }, 5 * 60000); })();
+
+/* ---------- Visitor stats (GoatCounter: free, no cookies). Skipped in demo mode and previews. ---------- */
+const GOATCOUNTER = 'https://rockyridgelights.goatcounter.com/count';
+function countEvent(path) { try { window.goatcounter?.count?.({ path, event: true }); } catch {} }
+if (!DEMO && !forcedTheme && /github\.io$/.test(location.hostname)) {
+  const g = document.createElement('script'); g.async = true; g.src = 'https://gc.zgo.at/count.js'; g.dataset.goatcounter = GOATCOUNTER; document.head.append(g);
+}
 // frost the search bar only while it's stuck to the top
 try { new IntersectionObserver(([e]) => document.querySelector('.songs-head').classList.toggle('stuck', !e.isIntersecting && e.boundingClientRect.top < 0)).observe($('headSentinel')); } catch (e) {}
 </script>
