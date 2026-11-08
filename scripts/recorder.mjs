@@ -26,20 +26,16 @@ const etParts = (d) => Object.fromEntries(new Intl.DateTimeFormat('en-CA', { tim
   .formatToParts(d).map((p) => [p.type, p.value]));
 /** Show night = Eastern date, rolling over at 6 AM so a show past midnight stays on one night. */
 function nightKey(d = new Date()) { const p = etParts(new Date(d.getTime() - 6 * 3600_000)); return `${p.year}-${p.month}-${p.day}`; }
-/** Season = halloween Sep 1–Nov 3, otherwise christmas (keyed by the year it started). */
-function seasonKey(night) {
-  const [y, m, d] = night.split('-').map(Number); const md = m * 100 + d;
-  if (md >= 901 && md <= 1103) return `${y}-halloween`;
-  return `${m === 1 || md < 901 ? y - 1 : y}-christmas`;
-}
 
 function load() {
-  if (!existsSync(FILE)) return { updated: null, seasons: {} };
-  try { return JSON.parse(readFileSync(FILE, 'utf8')); } catch { return { updated: null, seasons: {} }; }
+  const empty = { updated: null, months: {} };
+  if (!existsSync(FILE)) return empty;
+  try { const j = JSON.parse(readFileSync(FILE, 'utf8')); j.months ??= {}; delete j.seasons; return j; } catch { return empty; }
 }
+/** Stats are kept per month (by show night, YYYY-MM) so test nights and Halloween/Christmas never mix. */
 function bucket(stats, night) {
-  const sk = seasonKey(night);
-  const s = (stats.seasons[sk] ??= { requests: {}, plays: {}, totalRequests: 0, nights: {} });
+  const mk = night.slice(0, 7);
+  const s = (stats.months[mk] ??= { requests: {}, plays: {}, totalRequests: 0, nights: {} });
   const n = (s.nights[night] ??= { requests: {}, plays: {}, totalRequests: 0 });
   return { s, n };
 }

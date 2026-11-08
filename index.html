@@ -330,10 +330,12 @@ const SETTINGS = {
     // from/to = when the page wears this theme. runs/ends = show nights. start = 'sunset' or a 24h time like '17:00'.
     { theme: 'halloween', from: '09-01', to: '11-03', runs: '10-01', ends: '10-31', start: 'sunset',
       eyebrow: '{year} Halloween Light Show', tagline: '8,000 individually controllable RGB lights. Pick a song … if you dare.',
-      restLabel: 'The spirits are resting', icon: '🎃', okMsg: '👻 Added to the queue!' },
+      restLabel: 'The spirits are resting', icon: '🎃', okMsg: '👻 Added to the queue!',
+      statMonths: ['10'] },   // months whose request stats count toward Fan favorites
     { theme: 'christmas', from: '11-04', to: '01-10', runs: '11-28', ends: '01-03', start: '17:00',
       eyebrow: '{year} Christmas Light Show', tagline: '20,000 individually controllable RGB lights. Pick a song and watch the house light up.',
-      restLabel: 'The lights are resting', icon: '🎄', okMsg: '🎁 Added to the queue!' }
+      restLabel: 'The lights are resting', icon: '🎄', okMsg: '🎁 Added to the queue!',
+      statMonths: ['12', '01'] }  // December + the January after it
   ],
   offSeason: { theme: 'christmas', eyebrow: 'Rocky Ridge Lights', tagline: 'Thanks for a great season! See you next year.',
     restLabel: 'See you next year', icon: '🎄', okMsg: 'Added to the queue!' }
@@ -549,7 +551,7 @@ function render() {
     }).join('');
     $('queueLabel').textContent = reqs.length ? `Coming up · ${reqs.length} in line` : 'Coming up';
     $('seasonStat').hidden = !pop.total;
-    $('seasonStat').textContent = pop.total ? `${pop.total.toLocaleString()} song${pop.total === 1 ? '' : 's'} requested this season${pop.tonight ? ` · ${pop.tonight} tonight` : ''}` : '';
+    $('seasonStat').textContent = pop.total ? `${pop.total.toLocaleString()} song${pop.total === 1 ? '' : 's'} requested ${popScope}${pop.tonight ? ` · ${pop.tonight} tonight` : ''}` : '';
   }
   renderSongs(voting);
 }
@@ -713,19 +715,28 @@ async function recordVisit() {
 }
 
 /* ---------- Popularity (stats.json is written nightly by the GitHub request recorder) ---------- */
-let pop = { fav: new Map(), hot: new Map(), total: 0, tonight: 0 };
+let pop = { fav: new Map(), hot: new Map(), total: 0, tonight: 0 }, popScope = 'this season';
 async function loadStats() {
   try {
     const r = await fetch('stats.json?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
     if (!r.ok) return;
     const st = await r.json();
     const now = new Date();
-    const sk = season ? `${seasonYear(season, now)}-${season.theme}` : null;
-    const se = sk && st.seasons?.[sk];
-    const n6 = new Date(now.getTime() - 6 * 3600e3);
+    const n6 = new Date(now.getTime() - 6 * 3600e3);              // show night rolls over at 6 AM
     const nk = `${n6.getFullYear()}-${pad(n6.getMonth() + 1)}-${pad(n6.getDate())}`;
+    const mk = nk.slice(0, 7), mm = nk.slice(5, 7);
+    // Fan favorites = this season's stat months (e.g. Dec + Jan). Outside them (test nights), just this month.
+    let months = [mk];
+    if (season?.statMonths?.includes(mm)) {
+      const y0 = seasonYear(season, n6);
+      months = season.statMonths.map((m) => `${+m < +season.statMonths[0] ? y0 + 1 : y0}-${m}`);
+    }
+    popScope = months.length > 1 || season?.statMonths?.includes(mm) ? 'this season' : 'this month';
+    const sum = {}; let total = 0;
+    for (const m of months) { const b = st.months?.[m]; if (!b) continue; total += b.totalRequests || 0; for (const [k, c] of Object.entries(b.requests || {})) sum[k] = (sum[k] || 0) + c; }
+    const night = st.months?.[mk]?.nights?.[nk];
     const top = (obj, n, min) => new Map(Object.entries(obj || {}).filter(([, c]) => c >= min).sort((a, b) => b[1] - a[1]).slice(0, n));
-    pop = { fav: top(se?.requests, 5, 3), hot: top(se?.nights?.[nk]?.requests, 3, 2), total: se?.totalRequests || 0, tonight: se?.nights?.[nk]?.totalRequests || 0 };
+    pop = { fav: top(sum, 5, 3), hot: top(night?.requests, 3, 2), total, tonight: night?.totalRequests || 0 };
     if (show) render();
   } catch {}
 }
