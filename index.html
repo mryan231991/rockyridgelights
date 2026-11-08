@@ -155,8 +155,8 @@
   .how .n{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--gold);color:var(--on-gold);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
 
   /* songs */
-  .songs-head{position:sticky;top:0;z-index:5;margin:0 -16px;padding:10px 16px 10px;background:linear-gradient(180deg,rgba(10,10,18,.92),rgba(10,10,18,.78));
-    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);display:flex;flex-direction:column;gap:10px}
+  .songs-head{position:sticky;top:0;z-index:5;margin:0 -16px;padding:10px 16px 10px;background:transparent;transition:background .25s;display:flex;flex-direction:column;gap:10px}
+  .songs-head.stuck{background:linear-gradient(180deg,rgba(10,10,18,.5),rgba(10,10,18,.28));-webkit-backdrop-filter:blur(10px) saturate(130%);backdrop-filter:blur(10px) saturate(130%)}
   .search{position:relative}
   .search input{width:100%;height:48px;padding:0 44px 0 44px;border-radius:14px;border:1px solid var(--edge);background:rgba(0,0,0,.35);
     color:#fff;font:500 16px Inter,sans-serif;outline:none}
@@ -298,6 +298,7 @@
   </section>
 
   <section id="songs" hidden>
+    <div id="headSentinel" style="height:1px;margin-bottom:-1px"></div>
     <div class="songs-head">
       <div class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -776,6 +777,8 @@ function badges(s) {
 }
 
 (async () => { await refresh(); schedule(); if (show && !DEMO) recordVisit(); loadStats(); setInterval(loadStats, 5 * 60000); })();
+// frost the search bar only while it's stuck to the top
+try { new IntersectionObserver(([e]) => document.querySelector('.songs-head').classList.toggle('stuck', !e.isIntersecting && e.boundingClientRect.top < 0)).observe($('headSentinel')); } catch (e) {}
 </script>
 </body>
 </html>
