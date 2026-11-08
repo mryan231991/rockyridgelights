@@ -321,10 +321,10 @@ const SETTINGS = {
   showEndText: '9:00 PM',
   // Seasons. Dates are month-day; a season can wrap the new year.
   seasons: [
-    { theme: 'halloween', from: '10-01', to: '11-01', runs: '10-01', ends: '10-31',
+    { theme: 'halloween', from: '09-01', to: '11-03', runs: '10-01', ends: '10-31',
       eyebrow: '{year} Halloween Light Show', tagline: '8,000 individually controllable RGB lights. Pick a song … if you dare.',
       restLabel: 'The spirits are resting', icon: '🎃', okMsg: '👻 Added to the queue!' },
-    { theme: 'christmas', from: '11-02', to: '01-10', runs: '11-28', ends: '01-03',
+    { theme: 'christmas', from: '11-04', to: '01-10', runs: '11-28', ends: '01-03',
       eyebrow: '{year} Christmas Light Show', tagline: '20,000 individually controllable RGB lights. Pick a song and watch the house light up.',
       restLabel: 'The lights are resting', icon: '🎄', okMsg: '🎁 Added to the queue!' }
   ],
@@ -368,7 +368,9 @@ function nextShowStart(s, now = new Date()) {
   return next > close ? null : next;
 }
 
-const season = currentSeason();
+// Preview another season by adding ?theme=halloween (or christmas) to the URL.
+const forcedTheme = new URLSearchParams(location.search).get('theme');
+const season = (forcedTheme && SETTINGS.seasons.find((x) => x.theme === forcedTheme)) || currentSeason();
 const S = season || SETTINGS.offSeason;
 document.documentElement.dataset.theme = S.theme;
 $('eyebrow').textContent = S.eyebrow.replace('{year}', seasonYear(season, new Date()));
