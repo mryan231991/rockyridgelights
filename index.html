@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rocky Ridge Lights</title>
+<meta name="description" content="Rocky Ridge Lights in Leesburg, VA. Tune to 89.7 FM and pick the next song.">
+<meta property="og:title" content="Rocky Ridge Lights">
+<meta property="og:description" content="20,000 lights synced to music. Pick a song and watch the house light up.">
+<meta name="theme-color" content="#120A1C">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Creepster&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  Rocky Ridge Lights — self-hosted viewer page.
+  Talks to Remote Falcon's public viewer API (the same calls RF's own viewer page makes)
+  straight from the visitor's phone, so RF's per-viewer request/vote limits still apply.
+  Edit SETTINGS below for show hours, season dates and links. Songs, categories and
+  album art come from Remote Falcon automatically.
+-->
+<style>
+  :root{
+    --text:#FFFFFF; --muted:rgba(255,255,255,.78); --faint:rgba(255,255,255,.55);
+    --glass:rgba(255,255,255,.10); --glass-strong:rgba(255,255,255,.16); --edge:rgba(255,255,255,.16);
+    --gold:#F5C451; --on-gold:#1A1206; --bg:#0A0A12; --bg2:#120A1C;
+    --g1:#E2283A; --g2:#2FAE6E; --g3:#F5C451; --g3o:.5;
+    --title-font:Fraunces,Georgia,serif; --title-size:44px; --title-color:#FFFFFF; --title-shadow:none;
+    --art-bg:linear-gradient(135deg,#7A1020,#0E5A3A);
+  }
+  [data-theme="halloween"]{
+    --gold:#FF8A1F; --bg2:#0E0716; --g1:#FF6A00; --g2:#7B2CFF; --g3:#5CFF3A; --g3o:.3;
+    --title-font:Creepster,Fraunces,serif; --title-size:54px; --title-color:#FF8A1F; --title-shadow:0 0 18px rgba(255,106,0,.55);
+    --art-bg:linear-gradient(135deg,#3A0F5C,#C24A00);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit}
+  a{color:var(--text)}
+
+  /* ---------- Background ---------- */
+  .bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;background:var(--bg2)}
+  .glow{position:absolute;border-radius:50%;filter:blur(80px);opacity:.75;will-change:transform}
+  .ga{width:80vmax;height:80vmax;left:-30vmax;top:-25vmax;background:var(--g1);animation:driftA 26s ease-in-out infinite alternate}
+  .gb{width:75vmax;height:75vmax;right:-30vmax;top:20vh;background:var(--g2);animation:driftB 32s ease-in-out infinite alternate}
+  .gc{width:60vmax;height:60vmax;left:-10vmax;bottom:-35vmax;background:var(--g3);opacity:var(--g3o);animation:driftC 38s ease-in-out infinite alternate}
+  @keyframes driftA{to{transform:translate(25vmax,30vh) scale(1.15)}}
+  @keyframes driftB{to{transform:translate(-30vmax,-20vh) scale(.9)}}
+  @keyframes driftC{to{transform:translate(35vmax,-25vh) scale(1.2)}}
+  .art-glow{position:absolute;inset:-12vmax;background-size:cover;background-position:center;filter:blur(60px) saturate(140%);
+    opacity:0;transition:opacity 1.2s ease, background-image 0s}
+  .art-glow.on{opacity:.85}
+  .tint{position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,6,12,.45),rgba(6,6,12,.65))}
+
+  /* snow */
+  .fx{position:absolute;inset:0;overflow:hidden}
+  .snow::before,.snow::after,.snow i{content:"";position:absolute;left:0;right:0;bottom:0;will-change:transform}
+  .snow::before{top:-220px;background-image:radial-gradient(1.6px 1.6px at 82px 38px,rgba(255,255,255,.75) 50%,transparent 100%),radial-gradient(2px 2px at 12px 18px,rgba(255,255,255,.75) 50%,transparent 100%),radial-gradient(1.8px 1.8px at 24px 93px,rgba(255,255,255,.75) 50%,transparent 100%),radial-gradient(1.2px 1.2px at 129px 54px,rgba(255,255,255,.75) 50%,transparent 100%),radial-gradient(1.3px 1.3px at 111px 107px,rgba(255,255,255,.75) 50%,transparent 100%),radial-gradient(1.6px 1.6px at 23px 141px,rgba(255,255,255,.75) 50%,transparent 100%),radial-gradient(1.3px 1.3px at 211px 144px,rgba(255,255,255,.75) 50%,transparent 100%),radial-gradient(1.8px 1.8px at 57px 161px,rgba(255,255,255,.75) 50%,transparent 100%),radial-gradient(1.8px 1.8px at 15px 147px,rgba(255,255,255,.75) 50%,transparent 100%),radial-gradient(1.5px 1.5px at 219px 34px,rgba(255,255,255,.75) 50%,transparent 100%),radial-gradient(2px 2px at 78px 143px,rgba(255,255,255,.75) 50%,transparent 100%),radial-gradient(1.8px 1.8px at 46px 26px,rgba(255,255,255,.75) 50%,transparent 100%);background-size:220px 220px;animation:fall0 9s linear infinite}
+  .snow::after{top:-320px;background-image:radial-gradient(3.4px 3.4px at 116px 189px,rgba(255,255,255,.85) 50%,transparent 100%),radial-gradient(3px 3px at 64px 98px,rgba(255,255,255,.85) 50%,transparent 100%),radial-gradient(2.5px 2.5px at 43px 70px,rgba(255,255,255,.85) 50%,transparent 100%),radial-gradient(2.7px 2.7px at 259px 107px,rgba(255,255,255,.85) 50%,transparent 100%),radial-gradient(2.8px 2.8px at 15px 235px,rgba(255,255,255,.85) 50%,transparent 100%),radial-gradient(2.9px 2.9px at 199px 253px,rgba(255,255,255,.85) 50%,transparent 100%),radial-gradient(2.8px 2.8px at 206px 45px,rgba(255,255,255,.85) 50%,transparent 100%),radial-gradient(3.1px 3.1px at 242px 194px,rgba(255,255,255,.85) 50%,transparent 100%),radial-gradient(3.4px 3.4px at 132px 49px,rgba(255,255,255,.85) 50%,transparent 100%);background-size:320px 320px;animation:fall1 14s linear infinite}
+  .snow i{top:-460px;filter:blur(1px);background-image:radial-gradient(4px 4px at 237px 313px,rgba(255,255,255,.6) 50%,transparent 100%),radial-gradient(4.8px 4.8px at 70px 95px,rgba(255,255,255,.6) 50%,transparent 100%),radial-gradient(4.2px 4.2px at 3px 173px,rgba(255,255,255,.6) 50%,transparent 100%),radial-gradient(3.5px 3.5px at 459px 309px,rgba(255,255,255,.6) 50%,transparent 100%),radial-gradient(4.5px 4.5px at 283px 315px,rgba(255,255,255,.6) 50%,transparent 100%),radial-gradient(4.1px 4.1px at 231px 371px,rgba(255,255,255,.6) 50%,transparent 100%);background-size:460px 460px;animation:fall2 22s linear infinite}
+  @keyframes fall0{to{transform:translateY(220px)}} @keyframes fall1{to{transform:translateY(320px)}} @keyframes fall2{to{transform:translateY(460px)}}
+  /* bats */
+  .bats span{position:absolute;left:0;width:46px;height:19px;will-change:transform;animation:batfly 24s linear infinite}
+  .bats span::before{content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 26'%3E%3Cpath fill='%231A0B24' d='M32 9 L34 2 L36.5 8 L42 6 L50 4 L63 5 L59 11 L55 10 L52 16 L47 13 L42 19 L37 17 L34 22 L32 25 L30 22 L27 17 L22 19 L17 13 L12 16 L9 10 L5 11 L1 5 L14 4 L22 6 L27.5 8 L30 2Z'/%3E%3C/svg%3E") center/contain no-repeat;filter:drop-shadow(0 0 6px rgba(255,138,31,.55));animation:flap .28s ease-in-out infinite alternate;transform-origin:50% 40%}
+  .bats span:nth-child(1){top:14vh;animation-duration:22s}
+  .bats span:nth-child(2){top:38vh;width:32px;height:13px;animation-duration:30s;animation-delay:-9s;animation-name:batfly2}
+  .bats span:nth-child(3){top:62vh;width:38px;height:16px;animation-duration:26s;animation-delay:-17s}
+  .bats span:nth-child(4){top:80vh;width:28px;height:12px;animation-duration:34s;animation-delay:-4s;animation-name:batfly2}
+  @keyframes batfly{0%{transform:translate(-60px,0)}25%{transform:translate(25vw,-6vh)}50%{transform:translate(50vw,3vh)}75%{transform:translate(75vw,-5vh)}100%{transform:translate(calc(100vw + 60px),2vh)}}
+  @keyframes batfly2{0%{transform:translate(calc(100vw + 60px),0) scaleX(-1)}30%{transform:translate(68vw,5vh) scaleX(-1)}60%{transform:translate(38vw,-4vh) scaleX(-1)}100%{transform:translate(-60px,3vh) scaleX(-1)}}
+  @keyframes flap{from{transform:scaleY(1)}to{transform:scaleY(.3)}}
+  @media (prefers-reduced-motion:reduce){.glow,.bulbs span{animation:none}.fx{display:none}}
+
+  /* ---------- Layout ---------- */
+  .page{position:relative;z-index:1;max-width:560px;margin:0 auto;padding:28px 16px 64px;display:flex;flex-direction:column;gap:18px;text-align:center}
+  .card{background:var(--glass);border:1px solid var(--edge);border-radius:24px;padding:20px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+  .label{margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  h2.section{margin:0 0 12px;font-family:Fraunces,Georgia,serif;font-size:26px;font-weight:700}
+  [hidden]{display:none !important}
+
+  /* header */
+  .bulbs{display:flex;justify-content:center;gap:14px;width:max-content;margin:0 auto 10px;padding:0 6px;
+    background:linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,.28)) 0 0/100% 1px no-repeat}
+  .bulbs span{position:relative;width:10px;height:15px;margin-top:5px;border-radius:50% 50% 50% 50%/38% 38% 62% 62%;animation:twinkle 2.4s ease-in-out infinite}
+  .bulbs span::before{content:"";position:absolute;left:2px;top:-4px;width:6px;height:5px;border-radius:1px;background:#2A2A2A}
+  .bulbs span:nth-child(4n+1){background:#FF3045;box-shadow:0 2px 14px 2px rgba(255,48,69,.75)}
+  .bulbs span:nth-child(4n+2){background:#2FD36A;box-shadow:0 2px 14px 2px rgba(47,211,106,.7);animation-delay:.6s}
+  .bulbs span:nth-child(4n+3){background:#3D8BFF;box-shadow:0 2px 14px 2px rgba(61,139,255,.75);animation-delay:1.2s}
+  .bulbs span:nth-child(4n){background:#FFA51F;box-shadow:0 2px 14px 2px rgba(255,165,31,.75);animation-delay:1.8s}
+  [data-theme="halloween"] .bulbs span:nth-child(4n+1){background:#FF7A1A;box-shadow:0 2px 14px 2px rgba(255,122,26,.8)}
+  [data-theme="halloween"] .bulbs span:nth-child(4n+2){background:#A04DFF;box-shadow:0 2px 14px 2px rgba(160,77,255,.8)}
+  [data-theme="halloween"] .bulbs span:nth-child(4n+3){background:#6CFF3A;box-shadow:0 2px 14px 2px rgba(108,255,58,.7)}
+  [data-theme="halloween"] .bulbs span:nth-child(4n){background:#EDE6FF;box-shadow:0 2px 14px 2px rgba(237,230,255,.6)}
+  @keyframes twinkle{0%,100%{opacity:1}50%{opacity:.35}}
+  .eyebrow{margin:0;font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+  h1{margin:4px 0 0;font-family:var(--title-font);font-weight:700;font-size:var(--title-size);line-height:1.02;letter-spacing:-.01em;color:var(--title-color);text-shadow:var(--title-shadow)}
+  [data-theme="halloween"] h1{font-weight:400;letter-spacing:.03em}
+  .tagline{margin:8px 0 0;font-size:16px;color:var(--muted)}
+  .xmas-cd{display:inline-flex;align-items:baseline;gap:5px;margin:14px 0 0;padding:6px 14px;border-radius:999px;background:rgba(0,0,0,.25);
+    border:1px solid var(--edge);font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .xmas-cd b{color:var(--gold)}
+  .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:14px}
+  .chip{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 14px;border-radius:999px;background:var(--glass);
+    border:1px solid var(--edge);color:var(--text);font-size:14px;font-weight:500;text-decoration:none;cursor:pointer}
+  .chip:hover{background:var(--glass-strong)}
+  .chip svg{width:16px;height:16px;flex-shrink:0}
+  .chip-gold{background:var(--gold);border-color:transparent;color:var(--on-gold);font-weight:600}
+  .chip-gold:hover{background:var(--gold);filter:brightness(1.08)}
+
+  /* tips */
+  .tips-card{padding:16px 18px}
+  .tips{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;text-align:left}
+  .tips li{display:flex;gap:10px;align-items:center;font-size:15px;line-height:1.4;color:var(--muted)}
+  .tips li b{color:var(--text)}
+  .ti{flex-shrink:0;width:28px;text-align:center;font-size:18px}
+
+  /* resting */
+  .after h2{margin:6px 0 8px;font-family:var(--title-font);font-size:30px;line-height:1.15;color:var(--text)}
+  [data-theme="halloween"] .after h2{font-weight:400;font-size:36px;color:var(--gold);letter-spacing:.03em}
+  .after p{margin:0;color:var(--muted);font-size:16px;line-height:1.5}
+  .cd{display:flex;justify-content:center;gap:8px;margin:4px 0 14px}
+  .cd-u{min-width:64px;padding:10px 4px 8px;border-radius:14px;background:rgba(0,0,0,.25);border:1px solid var(--edge)}
+  .cd-u span{display:block;font-family:Fraunces,Georgia,serif;font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+  .cd-u small{display:block;margin-top:5px;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+  /* now playing */
+  .np{display:flex;flex-direction:column;align-items:center;gap:12px}
+  .np-art{position:relative;width:120px;height:120px;border-radius:22px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.5);
+    background:var(--art-bg);display:flex;align-items:center;justify-content:center;font-size:56px}
+  .np-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .np-title{font-family:Fraunces,Georgia,serif;font-size:26px;font-weight:700;line-height:1.15}
+  .np-artist{margin-top:4px;font-size:15px;font-weight:500;color:var(--muted)}
+  .np-mine{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:999px;background:var(--gold);color:var(--on-gold);font-size:13px;font-weight:700}
+
+  /* queue */
+  .q{list-style:none;margin:0;padding:0;text-align:left}
+  .q li{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid rgba(255,255,255,.1)}
+  .q li:last-child{border-bottom:0}
+  .q .pos{width:22px;flex-shrink:0;text-align:center;font-weight:700;color:var(--gold)}
+  .q img{width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--art-bg)}
+  .q .qimg{width:40px;height:40px;border-radius:8px;flex-shrink:0;background:var(--art-bg)}
+  .q .qt{flex:1;min-width:0}
+  .q .qt b{display:block;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .q .qt small{display:block;font-size:13px;color:var(--muted)}
+  .q .eta{flex-shrink:0;font-size:13px;color:var(--muted);text-align:right}
+  .q li.mine{background:rgba(255,255,255,.06);border-radius:12px}
+  .q li.mine .eta{color:var(--gold);font-weight:700}
+  .empty-msg{margin:0;color:var(--muted);font-size:15px}
+
+  /* how */
+  .how{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;text-align:left}
+  .how li{display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:1.45;color:var(--muted)}
+  .how li b{color:var(--text)}
+  .how a{color:var(--text);font-weight:700;text-decoration-color:var(--gold);text-underline-offset:3px}
+  .how .n{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--gold);color:var(--on-gold);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+
+  /* songs */
+  .songs-head{position:sticky;top:0;z-index:5;margin:0 -16px;padding:10px 16px 10px;background:linear-gradient(180deg,rgba(10,10,18,.92),rgba(10,10,18,.78));
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);display:flex;flex-direction:column;gap:10px}
+  .search{position:relative}
+  .search input{width:100%;height:48px;padding:0 44px 0 44px;border-radius:14px;border:1px solid var(--edge);background:rgba(0,0,0,.35);
+    color:#fff;font:500 16px Inter,sans-serif;outline:none}
+  .search input:focus{border-color:var(--gold)}
+  .search input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+  .search svg{position:absolute;left:14px;top:14px;width:20px;height:20px;color:var(--muted)}
+  .search .clear{position:absolute;right:6px;top:6px;width:36px;height:36px;border:0;border-radius:10px;background:transparent;color:var(--muted);font-size:20px;cursor:pointer}
+  .cats{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .cats::-webkit-scrollbar{display:none}
+  .cat{flex-shrink:0;min-height:36px;padding:6px 14px;border-radius:999px;border:1px solid var(--edge);background:var(--glass);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .cat[aria-pressed="true"]{background:var(--gold);color:var(--on-gold);border-color:transparent}
+  .cat .ct{opacity:.65;font-weight:500;margin-left:4px}
+  .groups{display:flex;flex-direction:column;gap:6px;text-align:left}
+  details.grp{border-radius:18px}
+  details.grp>summary{list-style:none;display:flex;align-items:center;gap:12px;padding:12px 4px;cursor:pointer;
+    font-family:Fraunces,Georgia,serif;font-size:21px;font-weight:700}
+  details.grp>summary::-webkit-details-marker{display:none}
+  details.grp>summary::after{content:"";flex:1;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--gold),transparent);opacity:.7;order:2}
+  details.grp>summary .cnt{order:3;font-family:Inter,sans-serif;font-size:13px;font-weight:600;color:var(--muted)}
+  details.grp>summary .chev{order:4;width:18px;height:18px;transition:transform .2s;color:var(--muted)}
+  details.grp[open]>summary .chev{transform:rotate(180deg)}
+  .rows{display:flex;flex-direction:column;gap:10px;padding-bottom:8px}
+  .row{display:grid;grid-template-columns:48px 1fr auto;column-gap:14px;align-items:center;width:100%;min-height:68px;
+    padding:10px 12px 10px 10px;border-radius:16px;background:var(--glass);border:1px solid var(--edge);text-align:left;cursor:pointer;
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);transition:background .2s,transform .1s}
+  .row:hover{background:var(--glass-strong)}
+  .row:active{transform:scale(.98)}
+  .row img,.row .noimg{width:48px;height:48px;border-radius:10px;object-fit:cover;background:var(--art-bg)}
+  .row .t{min-width:0}
+  .row .t b{display:block;font-size:16px;font-weight:600;line-height:1.25}
+  .row .t small{display:block;font-size:13px;font-weight:500;color:var(--muted);margin-top:2px}
+  .row .t em{display:block;font-style:normal;font-size:12px;font-weight:600;color:var(--gold);margin-top:3px}
+  .row .act{width:36px;height:36px;border-radius:50%;background:#fff;color:#111;font-size:22px;font-weight:600;line-height:36px;text-align:center}
+  .row .votes{min-width:44px;padding:6px 10px;border-radius:12px;background:rgba(0,0,0,.3);font-family:Fraunces,Georgia,serif;font-size:20px;font-weight:700;color:var(--gold);text-align:center}
+  .row.off{opacity:.45;cursor:default}
+  .row.off .act{visibility:hidden}
+  .row.mine{border-color:var(--gold)}
+  .row.busy .act{animation:pulse .8s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.4}}
+  .no-results{padding:24px 8px;color:var(--muted);text-align:center}
+  mark{background:rgba(245,196,81,.35);color:inherit;border-radius:3px;padding:0 1px}
+
+  /* toast */
+  .toast{position:fixed;left:16px;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:50;max-width:528px;margin:0 auto;padding:14px 16px;
+    border-radius:16px;font-size:16px;font-weight:600;line-height:1.4;text-align:center;color:#fff;box-shadow:0 12px 40px rgba(0,0,0,.45);
+    transform:translateY(140%);transition:transform .3s ease}
+  .toast.show{transform:none}
+  .toast.ok{background:rgba(46,160,90,.95)}
+  .toast.err{background:rgba(200,40,50,.95)}
+  .toast.info{background:rgba(40,40,60,.95)}
+  .offline{font-size:13px;color:var(--muted)}
+  .footer{font-size:13px;color:var(--muted)}
+  .footer p{margin:6px 0 0}
+</style>
+</head>
+<body>
+
+<div class="bg" aria-hidden="true">
+  <div class="glow ga"></div><div class="glow gb"></div><div class="glow gc"></div>
+  <div class="art-glow" id="artGlow"></div>
+  <div class="tint"></div>
+  <div class="fx snow" id="fxSnow"><i></i></div>
+  <div class="fx bats" id="fxBats" hidden><span></span><span></span><span></span><span></span></div>
+</div>
+
+<div class="page">
+  <header>
+    <div class="bulbs" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <p class="eyebrow" id="eyebrow">2026 Christmas Light Show</p>
+    <h1>Rocky Ridge Lights</h1>
+    <p class="tagline" id="tagline">20,000 individually controllable RGB lights. Pick a song and watch the house light up.</p>
+    <p class="xmas-cd" id="xmasCd" hidden><span aria-hidden="true">🎄</span><b id="xd">0</b><span>days</span><b id="xh">00</b><span>:</span><b id="xm">00</b><span>:</span><b id="xs">00</b><span>until Christmas</span></p>
+    <div class="chips">
+      <a class="chip" id="listenChip" href="https://player.pulsemesh.io" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10a8 8 0 0 1 16 0"/><path d="M8 12a4 4 0 0 1 8 0"/><circle cx="12" cy="15" r="2"/></svg>
+        No radio? Listen here</a>
+      <a class="chip" href="https://www.google.com/maps/place/43094+Rocky+Ridge+Ct,+Leesburg,+VA+20176" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        Directions</a>
+      <a class="chip" href="https://www.facebook.com/profile.php?id=61569483552198" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 8h2.5V4.5H14c-2.5 0-4 1.7-4 4.2V11H7.5v3.5H10V21h3.5v-6.5H16l.5-3.5h-3V8.9c0-.6.3-.9.5-.9z"/></svg>
+        Facebook</a>
+      <a class="chip" href="https://instagram.com/rockyridgelights" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1" fill="currentColor" stroke="none"/></svg>
+        Instagram</a>
+      <a class="chip chip-gold" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Frockyridgelights.remotefalcon.com" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+        Share on Facebook</a>
+    </div>
+  </header>
+
+  <section class="card tips-card">
+    <p class="label">While you watch</p>
+    <ul class="tips">
+      <li><span class="ti" aria-hidden="true">🚗</span><span><b>Headlights off.</b> Parking lights are fine.</span></li>
+      <li><span class="ti" aria-hidden="true">🏠</span><span><b>Don't block driveways</b> or mailboxes.</span></li>
+      <li><span class="ti" aria-hidden="true">🚶</span><span><b>Watch for walkers</b> and little ones.</span></li>
+    </ul>
+  </section>
+
+  <!-- Show off -->
+  <section class="card after" id="resting" hidden>
+    <p class="label" id="restLabel">The lights are resting</p>
+    <h2 id="restTitle">Next show in</h2>
+    <div class="cd" id="restCd"><div class="cd-u"><span id="rd">0</span><small>days</small></div><div class="cd-u"><span id="rh">00</span><small>hrs</small></div><div class="cd-u"><span id="rm">00</span><small>min</small></div><div class="cd-u"><span id="rs">00</span><small>sec</small></div></div>
+    <p id="restText">Nightly 5:00 to 9:00 PM, November 28 through January 3. Song requests open when the show starts.</p>
+  </section>
+
+  <!-- Show on -->
+  <section class="card" id="nowCard" hidden>
+    <p class="label">Now playing</p>
+    <div class="np">
+      <div class="np-art" id="npArt"><span id="npPh">🎄</span></div>
+      <div><div class="np-title" id="npTitle">Starting soon</div><div class="np-artist" id="npArtist"></div><div id="npMine" class="np-mine" hidden>Your request! 🎉</div></div>
+    </div>
+  </section>
+
+  <section class="card" id="queueCard" hidden>
+    <p class="label" id="queueLabel">Coming up</p>
+    <p class="empty-msg" id="queueEmpty">No requests yet. Be the first!</p>
+    <ol class="q" id="queue"></ol>
+  </section>
+
+  <section class="card" id="howCard" hidden>
+    <h2 class="section" id="howTitle">Request a song</h2>
+    <ul class="how">
+      <li><span class="n">1</span><span>Tune your radio to <b>89.7 FM</b> or <a href="https://player.pulsemesh.io" target="_blank" rel="noopener">listen here</a>.</span></li>
+      <li><span class="n">2</span><span id="howStep2">Tap any song below. Up to <b id="depth">10</b> songs can be queued.</span></li>
+      <li><span class="n">3</span><span id="howStep3">Songs play in the order they're picked.</span></li>
+    </ul>
+  </section>
+
+  <section id="songs" hidden>
+    <div class="songs-head">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Search songs or artists" autocomplete="off" aria-label="Search songs or artists">
+        <button class="clear" id="qClear" aria-label="Clear search" hidden>×</button>
+      </div>
+      <div class="cats" id="cats" role="toolbar" aria-label="Categories"></div>
+    </div>
+    <div class="groups" id="groups"></div>
+  </section>
+
+  <p class="offline" id="offline" hidden>Reconnecting to the show…</p>
+
+  <footer class="footer">
+    <p>43094 Rocky Ridge Ct, Leesburg, VA</p>
+    <p>Song requests powered by Remote Falcon</p>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ===================== SETTINGS (edit these) ===================== */
+const SETTINGS = {
+  show: 'rockyridgelights',
+  api: 'https://remotefalcon.com/remote-falcon-viewer/graphql',
+  pollMs: 4000,
+  showStart: '17:00',            // nightly start time (24h)
+  showEndText: '9:00 PM',
+  // Seasons. Dates are month-day; a season can wrap the new year.
+  seasons: [
+    { theme: 'halloween', from: '10-01', to: '11-01', runs: '10-01', ends: '10-31',
+      eyebrow: '{year} Halloween Light Show', tagline: '8,000 individually controllable RGB lights. Pick a song … if you dare.',
+      restLabel: 'The spirits are resting', icon: '🎃', okMsg: '👻 Added to the queue!' },
+    { theme: 'christmas', from: '11-02', to: '01-10', runs: '11-28', ends: '01-03',
+      eyebrow: '{year} Christmas Light Show', tagline: '20,000 individually controllable RGB lights. Pick a song and watch the house light up.',
+      restLabel: 'The lights are resting', icon: '🎄', okMsg: '🎁 Added to the queue!' }
+  ],
+  offSeason: { theme: 'christmas', eyebrow: 'Rocky Ridge Lights', tagline: 'Thanks for a great season! See you next year.',
+    restLabel: 'See you next year', icon: '🎄', okMsg: 'Added to the queue!' }
+};
+/* ================================================================= */
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => String(n).padStart(2, '0');
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+/* ---------- Season ---------- */
+function md(d) { return pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function inRange(x, from, to) { return from <= to ? (x >= from && x <= to) : (x >= from || x <= to); }
+function currentSeason(now = new Date()) {
+  const t = md(now);
+  return SETTINGS.seasons.find((s) => inRange(t, s.from, s.to)) || null;
+}
+function seasonYear(s, now) { // year label: a season that wraps uses the year it started
+  return (s && s.from > s.to && md(now) <= s.to) ? now.getFullYear() - 1 : now.getFullYear();
+}
+function dateFor(mmdd, year, timeStr) {
+  const [m, d] = mmdd.split('-').map(Number); const [h, mi] = timeStr.split(':').map(Number);
+  return new Date(year, m - 1, d, h, mi, 0);
+}
+/** Next show start: today/tomorrow at showStart while the season runs, else opening night. */
+function nextShowStart(s, now = new Date()) {
+  if (!s) return null;
+  const y = seasonYear(s, now);
+  const open = dateFor(s.runs, y, SETTINGS.showStart);
+  let close = dateFor(s.ends, s.runs > s.ends ? y + 1 : y, '23:59');
+  if (now < open) return open;
+  if (now > close) return null;
+  let next = dateFor(md(now), now.getFullYear(), SETTINGS.showStart);
+  if (now >= next) next.setDate(next.getDate() + 1);
+  return next > close ? null : next;
+}
+
+const season = currentSeason();
+const S = season || SETTINGS.offSeason;
+document.documentElement.dataset.theme = S.theme;
+$('eyebrow').textContent = S.eyebrow.replace('{year}', seasonYear(season, new Date()));
+$('tagline').textContent = S.tagline;
+$('restLabel').textContent = S.restLabel;
+$('npPh').textContent = S.icon;
+$('fxSnow').hidden = S.theme !== 'christmas';
+$('fxBats').hidden = S.theme !== 'halloween';
+if (season) {
+  const fmt = (mmdd) => new Date(2000, +mmdd.slice(0, 2) - 1, +mmdd.slice(3)).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  $('restText').textContent = `Nightly 5:00 to ${SETTINGS.showEndText}, ${fmt(season.runs)} through ${fmt(season.ends)}. Song requests open when the show starts.`;
+} else {
+  $('restTitle').textContent = 'Thanks for watching!';
+  $('restCd').hidden = true;
+  $('restText').textContent = 'The show is packed away for the year. Follow us on Facebook or Instagram for next season.';
+}
+
+/* ---------- Countdowns ---------- */
+function split(ms) {
+  let s = Math.max(0, Math.floor(ms / 1000)); const d = Math.floor(s / 86400); s %= 86400;
+  return { d, h: Math.floor(s / 3600), m: Math.floor((s % 3600) / 60), s: s % 60 };
+}
+function tick() {
+  const now = new Date();
+  if (S.theme === 'christmas' && season) {
+    let xmas = new Date(now.getFullYear(), 11, 25);
+    if (now >= new Date(now.getFullYear(), 11, 26)) xmas = null; // after Christmas: hide
+    $('xmasCd').hidden = !xmas;
+    if (xmas) { const p = split(xmas - now); $('xd').textContent = p.d; $('xh').textContent = pad(p.h); $('xm').textContent = pad(p.m); $('xs').textContent = pad(p.s); }
+  }
+  if (season) {
+    const next = nextShowStart(season, now);
+    if (next) {
+      const p = split(next - now);
+      $('rd').parentElement.hidden = p.d === 0;
+      $('rd').textContent = p.d; $('rh').textContent = pad(p.h); $('rm').textContent = pad(p.m); $('rs').textContent = pad(p.s);
+      $('restTitle').textContent = (next - now) < 60000 ? 'Starting any moment' : 'Next show in';
+    } else {
+      $('restCd').hidden = true; $('restTitle').textContent = 'That’s a wrap!';
+      $('restText').textContent = 'Thanks for a great season. See you next year!';
+    }
+  }
+}
+tick(); setInterval(tick, 1000);
+
+/* ---------- API ---------- */
+const SHOW_QUERY = `query GetShowForViewer($showSubdomain: String!) { getShow(showSubdomain: $showSubdomain) {
+  showName playingNow playingNext
+  playingNowSequence { name displayName imageUrl artist duration }
+  preferences { viewerControlEnabled viewerPageViewOnly viewerControlMode jukeboxDepth locationCheckMethod locationCode
+    nightlyPlayLimit lastPlayCountedAt analyticsBetaOptIn }
+  sequences { name displayName duration visible index order imageUrl visibilityCount type group category artist playsToday }
+  categories { name displayOrder nightlyPlayLimit }
+  requests { position sequence { name displayName imageUrl artist } }
+  votes { votes sequence { name } sequenceGroup { name } }
+} }`;
+async function gql(query, variables) {
+  const r = await fetch(SETTINGS.api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, variables }) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+function viewerId() {
+  let id = store.get('rf-viewer-id', null);
+  if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)); store.set('rf-viewer-id', id); }
+  return id;
+}
+
+/* ---------- State ---------- */
+let show = null, failures = 0, filterCat = 'All', query = '', busy = false;
+const tonightKey = () => 'rrl-mine-' + new Date(Date.now() - 6 * 3600e3).toISOString().slice(0, 10); // show night (rolls over at 6 AM)
+let mine = store.get(tonightKey(), []);   // song names this phone requested tonight
+let lastPlaying = null;
+const openGroups = store.get('rrl-open', {});
+
+/* ---------- Rendering ---------- */
+function isUnavailable(seq) {
+  if ((seq.visibilityCount ?? 0) > 0) return true;
+  const p = show.preferences || {};
+  const cat = (show.categories || []).find((c) => c.name && seq.category && c.name.toLowerCase() === seq.category.toLowerCase());
+  const limit = cat ? (cat.nightlyPlayLimit ?? p.nightlyPlayLimit) : p.nightlyPlayLimit;
+  if (!limit || limit <= 0) return false;
+  const last = p.lastPlayCountedAt ? Date.parse(/(Z|[+-]\d{2}:?\d{2})$/i.test(p.lastPlayCountedAt) ? p.lastPlayCountedAt : p.lastPlayCountedAt + 'Z') : null;
+  if (!last || last < Date.now() - 6 * 3600e3) return false;
+  return (seq.playsToday ?? 0) >= limit;
+}
+function seqByName(name) { return (show.sequences || []).find((s) => s.name === name); }
+function catOrder() {
+  return (show.categories || []).map((c, i) => ({ name: c.name, k: typeof c.displayOrder === 'number' ? c.displayOrder : i, i }))
+    .sort((a, b) => a.k - b.k || a.i - b.i).map((c) => c.name);
+}
+function highlight(text) {
+  const t = esc(text); if (!query) return t;
+  const i = text.toLowerCase().indexOf(query.toLowerCase()); if (i < 0) return t;
+  return esc(text.slice(0, i)) + '<mark>' + esc(text.slice(i, i + query.length)) + '</mark>' + esc(text.slice(i + query.length));
+}
+function fmtMin(sec) { const m = Math.round(sec / 60); return m <= 1 ? 'about 1 min' : `about ${m} min`; }
+
+function render() {
+  const p = show.preferences || {};
+  const on = !!p.viewerControlEnabled;
+  const voting = p.viewerControlMode === 'VOTING';
+  $('resting').hidden = on;
+  ['nowCard', 'queueCard', 'howCard', 'songs'].forEach((id) => { $(id).hidden = !on; });
+  if (voting) $('queueCard').hidden = true;
+  if (!on) { setGlow(null); return; }
+
+  // Now playing
+  const np = show.playingNowSequence;
+  const title = np?.displayName || show.playingNow || '';
+  $('npTitle').textContent = title || 'Starting soon';
+  $('npArtist').textContent = np?.artist || '';
+  const art = $('npArt'); const img = art.querySelector('img');
+  if (np?.imageUrl) {
+    if (!img || img.dataset.src !== np.imageUrl) { img?.remove(); const i = new Image(); i.alt = ''; i.dataset.src = np.imageUrl; i.src = np.imageUrl; art.append(i); }
+  } else img?.remove();
+  setGlow(np?.imageUrl || null);
+  const nowName = np?.name || show.playingNow;
+  $('npMine').hidden = !(nowName && mine.includes(nowName));
+  if (nowName && nowName !== lastPlaying) {
+    if (lastPlaying !== null && mine.includes(nowName)) { toast('🎉 Your song is playing now!', 'ok', 5000); navigator.vibrate?.([200, 100, 200]); }
+    lastPlaying = nowName;
+  }
+
+  // Instructions
+  $('howTitle').textContent = voting ? 'Vote for the next song' : 'Request a song';
+  $('howStep2').innerHTML = voting ? 'Tap a song to vote. <b>One vote per round.</b>' : `Tap any song below. Up to <b>${esc(p.jukeboxDepth ?? 10)}</b> songs can be queued.`;
+  $('howStep3').textContent = voting ? 'The song with the most votes plays next.' : 'Songs play in the order they’re picked.';
+
+  // Queue with wait estimates
+  if (!voting) {
+    const reqs = [...(show.requests || [])].sort((a, b) => a.position - b.position);
+    $('queueEmpty').hidden = reqs.length > 0;
+    let wait = (np?.duration || 0) / 2; // assume we're about halfway through the current song
+    $('queue').innerHTML = reqs.map((r, i) => {
+      const s = seqByName(r.sequence?.name) || {};
+      const eta = i === 0 ? 'Next' : fmtMin(wait);
+      wait += s.duration || 210;
+      const isMine = mine.includes(r.sequence?.name);
+      return `<li class="${isMine ? 'mine' : ''}"><span class="pos">${i + 1}</span>
+        ${r.sequence?.imageUrl ? `<img src="${esc(r.sequence.imageUrl)}" alt="" loading="lazy">` : '<span class="qimg"></span>'}
+        <span class="qt"><b>${esc(r.sequence?.displayName || r.sequence?.name)}</b><small>${esc(r.sequence?.artist || '')}</small></span>
+        <span class="eta">${isMine ? 'Yours · ' : ''}${eta}</span></li>`;
+    }).join('');
+    $('queueLabel').textContent = reqs.length ? `Coming up · ${reqs.length} in line` : 'Coming up';
+  }
+  renderSongs(voting);
+}
+
+function renderSongs(voting) {
+  const p = show.preferences || {};
+  const seqs = (show.sequences || []).filter((s) => s.visible);
+  const order = catOrder();
+  const voteOf = (s) => { const v = (show.votes || []).find((v) => v.sequence?.name === s.name || (s.group && v.sequenceGroup?.name === s.group)); return v ? v.votes : 0; };
+
+  // group by category (uncategorized → "More songs", after named categories)
+  const groups = new Map();
+  order.forEach((c) => groups.set(c, []));
+  seqs.forEach((s) => { const k = s.category && groups.has(s.category) ? s.category : (s.category || '__more'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(s); });
+  const hasCats = order.length > 0;
+  const label = (k) => k === '__more' ? (hasCats ? 'More songs' : 'All songs') : k;
+
+  // category chips
+  const cats = ['All', ...[...groups.keys()].filter((k) => groups.get(k).length)];
+  if (!cats.includes(filterCat)) filterCat = 'All';
+  $('cats').hidden = cats.length <= 2;
+  $('cats').innerHTML = cats.map((k) => `<button class="cat" data-cat="${esc(k)}" aria-pressed="${k === filterCat}">${esc(k === 'All' ? 'All' : label(k))}<span class="ct">${k === 'All' ? seqs.length : groups.get(k).length}</span></button>`).join('');
+
+  const q = query.toLowerCase();
+  const match = (s) => !q || (s.displayName || s.name).toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q);
+  let html = '', shown = 0;
+  for (const [k, list] of groups) {
+    if (!list.length || (filterCat !== 'All' && filterCat !== k)) continue;
+    let rows = list.filter(match);
+    if (voting) rows = [...rows].sort((a, b) => voteOf(b) - voteOf(a));
+    if (!rows.length) continue;
+    shown += rows.length;
+    const open = q || filterCat !== 'All' || openGroups[k] !== false;
+    html += `<details class="grp" data-grp="${esc(k)}" ${open ? 'open' : ''}><summary>${esc(label(k))}<span class="cnt">${rows.length}</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="rows">`;
+    for (const s of rows) {
+      const off = isUnavailable(s) || p.viewerPageViewOnly;
+      const isMine = mine.includes(s.name);
+      const hint = off && !p.viewerPageViewOnly ? `<em>${(s.visibilityCount ?? 0) > 0 ? 'Available again soon' : 'Back next show'}</em>` : (isMine ? '<em>In line ✓</em>' : '');
+      html += `<button class="row${off ? ' off' : ''}${isMine ? ' mine' : ''}" data-name="${esc(s.name)}" ${off ? 'aria-disabled="true"' : ''}>
+        ${s.imageUrl ? `<img src="${esc(s.imageUrl)}" alt="" loading="lazy">` : '<span class="noimg"></span>'}
+        <span class="t"><b>${highlight(s.displayName || s.name)}</b><small>${highlight(s.artist || '')}</small>${hint}</span>
+        ${voting ? `<span class="votes" aria-label="${voteOf(s)} votes">${voteOf(s)}</span>` : '<span class="act" aria-hidden="true">+</span>'}</button>`;
+    }
+    html += '</div></details>';
+  }
+  $('groups').innerHTML = shown ? html : `<p class="no-results">No songs match “${esc(query)}”.</p>`;
+}
+
+let glowUrl = null;
+function setGlow(url) {
+  if (url === glowUrl) return; glowUrl = url;
+  const g = $('artGlow');
+  if (url) { g.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`; g.classList.add('on'); } else g.classList.remove('on');
+}
+
+let toastT;
+function toast(msg, kind = 'info', ms = 3500) {
+  const t = $('toast'); t.textContent = msg; t.className = 'toast show ' + kind;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.className = 'toast ' + kind; }, ms);
+}
+
+/* ---------- Requests & votes ---------- */
+const ERRORS = {
+  QUEUE_FULL: () => `The queue is full (${show.preferences?.jukeboxDepth ?? ''} songs). Try again in a few minutes.`,
+  SEQUENCE_REQUESTED: () => 'That song is already in line. Pick another!',
+  ALREADY_REQUESTED: () => 'You’ve already got a song in line. Hang tight!',
+  ALREADY_VOTED: () => 'You’ve already voted this round.',
+  DAILY_VOTE_LIMIT_REACHED: () => 'You’ve reached tonight’s vote limit.',
+  SEQUENCE_UNAVAILABLE: () => 'That song is resting for now. Pick another!',
+  INVALID_LOCATION: () => 'Requests only work near the show. Make sure location access is on.',
+  NAUGHTY: () => 'Requests are paused for this device.',
+  OWNER_REQUESTED: () => 'The show is playing a special set right now.'
+};
+async function locationArgs() {
+  const p = show.preferences || {};
+  if (p.locationCheckMethod === 'CODE') {
+    const code = prompt('Enter the code shown on the display');
+    if (code === null) throw new Error('CANCELLED');
+    if (parseInt(code, 10) !== parseInt(p.locationCode, 10)) throw new Error('BAD_CODE');
+    return {};
+  }
+  if (p.locationCheckMethod === 'GEO') {
+    const pos = await new Promise((res, rej) => navigator.geolocation ? navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000, maximumAge: 60000 }) : rej(new Error('NOGEO')));
+    return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+  }
+  return {};
+}
+async function pick(name, rowEl) {
+  if (busy) return; busy = true; rowEl?.classList.add('busy');
+  const voting = show.preferences?.viewerControlMode === 'VOTING';
+  try {
+    const loc = await locationArgs();
+    const vars = { showSubdomain: SETTINGS.show, name, ...loc, viewerId: show.preferences?.analyticsBetaOptIn ? viewerId() : null };
+    const mutation = voting
+      ? 'mutation V($showSubdomain: String!, $name: String!, $latitude: Float, $longitude: Float, $viewerId: String) { voteForSequence(showSubdomain: $showSubdomain, name: $name, latitude: $latitude, longitude: $longitude, viewerId: $viewerId) }'
+      : 'mutation A($showSubdomain: String!, $name: String!, $latitude: Float, $longitude: Float, $viewerId: String) { addSequenceToQueue(showSubdomain: $showSubdomain, name: $name, latitude: $latitude, longitude: $longitude, viewerId: $viewerId) }';
+    const res = await gql(mutation, vars);
+    const err = res?.errors?.[0]?.message;
+    if (err) { toast((ERRORS[err] || (() => 'Something went wrong. Please try again.'))(), 'err'); return; }
+    if (voting) toast('🗳️ Vote counted!', 'ok');
+    else { toast(S.okMsg, 'ok'); mine = [...new Set([...mine, name])]; store.set(tonightKey(), mine); }
+    await refresh();
+  } catch (e) {
+    if (e.message === 'CANCELLED') return;
+    toast(e.message === 'BAD_CODE' ? 'That code isn’t right. Check the display and try again.'
+      : (e.code === 1 || e.message === 'NOGEO') ? 'Please allow location so we know you’re at the show.'
+      : 'Couldn’t reach the show. Check your connection and try again.', 'err');
+  } finally { busy = false; rowEl?.classList.remove('busy'); }
+}
+
+/* ---------- Events ---------- */
+$('groups').addEventListener('click', (e) => {
+  const row = e.target.closest('.row'); if (!row || row.classList.contains('off')) return;
+  pick(row.dataset.name, row);
+});
+$('groups').addEventListener('toggle', (e) => {
+  const d = e.target; if (!d.matches?.('details.grp') || query || filterCat !== 'All') return;
+  openGroups[d.dataset.grp] = d.open; store.set('rrl-open', openGroups);
+}, true);
+$('cats').addEventListener('click', (e) => {
+  const b = e.target.closest('.cat'); if (!b) return;
+  filterCat = b.dataset.cat; renderSongs(show.preferences?.viewerControlMode === 'VOTING');
+});
+$('q').addEventListener('input', (e) => { query = e.target.value.trim(); $('qClear').hidden = !query; renderSongs(show.preferences?.viewerControlMode === 'VOTING'); });
+$('qClear').addEventListener('click', () => { $('q').value = ''; query = ''; $('qClear').hidden = true; renderSongs(show.preferences?.viewerControlMode === 'VOTING'); $('q').focus(); });
+
+/* ---------- Polling ---------- */
+let renderedKey = '';
+async function refresh() {
+  try {
+    const res = await gql(SHOW_QUERY, { showSubdomain: SETTINGS.show });
+    if (!res?.data?.getShow) throw new Error('no show');
+    show = res.data.getShow; failures = 0; $('offline').hidden = true;
+    const key = JSON.stringify(show);
+    if (key !== renderedKey) { renderedKey = key; render(); }
+  } catch (e) {
+    failures++; if (failures >= 2) $('offline').hidden = false;
+  }
+}
+let timer;
+function schedule() { clearTimeout(timer); timer = setTimeout(async () => { if (!document.hidden) await refresh(); schedule(); }, Math.min(SETTINGS.pollMs * Math.max(1, failures), 30000)); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(); schedule(); } });
+
+async function recordVisit() {
+  try {
+    const last = store.get('rrl-visit', 0); if (Date.now() - last < 60000) return;
+    const d = new Date(); const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    const u = new URLSearchParams(location.search);
+    const res = await gql('mutation I($showSubdomain: String!, $date: DateTime!, $viewerId: String, $utmSource: String, $utmMedium: String) { insertViewerPageStats(showSubdomain: $showSubdomain, date: $date, viewerId: $viewerId, utmSource: $utmSource, utmMedium: $utmMedium) }',
+      { showSubdomain: SETTINGS.show, date, viewerId: show?.preferences?.analyticsBetaOptIn ? viewerId() : null, utmSource: u.get('utm_source'), utmMedium: u.get('utm_medium') });
+    if (!res?.errors?.length) store.set('rrl-visit', Date.now());
+  } catch {}
+}
+
+(async () => { await refresh(); schedule(); if (show) recordVisit(); })();
+</script>
+</body>
+</html>
