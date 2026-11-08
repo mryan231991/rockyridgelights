@@ -560,56 +560,52 @@ function render() {
   renderSongs(voting);
 }
 
+// A song can be in several categories: in Remote Falcon, type them comma-separated ("Kids, Disney")
+function catsOf(s) { return (s.category || '').split(',').map((c) => c.trim()).filter(Boolean); }
+const byTitle = (a, b) => (a.displayName || a.name).localeCompare(b.displayName || b.name, undefined, { numeric: true, sensitivity: 'base' });
+
 function renderSongs(voting) {
   const p = show.preferences || {};
   const seqs = (show.sequences || []).filter((s) => s.visible);
-  const order = catOrder();
   const voteOf = (s) => { const v = (show.votes || []).find((v) => v.sequence?.name === s.name || (s.group && v.sequenceGroup?.name === s.group)); return v ? v.votes : 0; };
 
-  // group by category (uncategorized → "More songs", after named categories)
-  const groups = new Map();
-  order.forEach((c) => groups.set(c, []));
-  seqs.forEach((s) => { const k = s.category && groups.has(s.category) ? s.category : (s.category || '__more'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(s); });
-  const hasCats = order.length > 0;
-  const label = (k) => k === '__more' ? (hasCats ? 'More songs' : 'All songs') : k === '__fav' ? '⭐ Fan favorites' : k === '__hot' ? '🔥 Hot tonight' : k;
-  // Special filters: Hot tonight + Fan favorites (only shown when picked, never in "All")
+  // Filter lists: one flat list per filter, no sections
+  const lists = new Map();
+  const SPECIAL = ['__hot', '__fav'];
+  const label = (k) => k === '__fav' ? '⭐ Fan favorites' : k === '__hot' ? '🔥 Hot tonight' : k;
   const special = (m) => seqs.filter((x) => m.has(x.name)).sort((a, b) => m.get(b.name) - m.get(a.name));
   const hotList = special(pop.hot), favList = special(pop.fav);
-  const SPECIAL = ['__hot', '__fav'];
-  if (hotList.length) groups.set('__hot', hotList);
-  if (favList.length) groups.set('__fav', favList);
+  if (hotList.length) lists.set('__hot', hotList);
+  if (favList.length) lists.set('__fav', favList);
+  // category chips: Remote Falcon's category order first, then any others, A–Z
+  const catNames = [];
+  const addCat = (c) => { if (!catNames.some((x) => x.toLowerCase() === c.toLowerCase())) catNames.push(c); };
+  catOrder().forEach((n) => (n || '').split(',').map((c) => c.trim()).filter(Boolean).forEach(addCat));
+  [...new Set(seqs.flatMap(catsOf))].sort((a, b) => a.localeCompare(b)).forEach(addCat);
+  catNames.forEach((c) => { const l = seqs.filter((s) => catsOf(s).some((x) => x.toLowerCase() === c.toLowerCase())); if (l.length) lists.set(c, l); });
 
-  // filter chips: All, Hot tonight, Fan favorites, then categories
-  const keys = [...groups.keys()].filter((k) => groups.get(k).length);
-  const cats = ['All', ...SPECIAL.filter((k) => keys.includes(k)), ...keys.filter((k) => !SPECIAL.includes(k))];
-  if (!cats.includes(filterCat)) filterCat = 'All';
-  $('cats').hidden = cats.length <= 2 && !keys.some((k) => SPECIAL.includes(k));
-  $('cats').innerHTML = cats.map((k) => `<button class="cat" data-cat="${esc(k)}" aria-pressed="${k === filterCat}">${esc(k === 'All' ? 'All' : label(k))}<span class="ct">${k === 'All' ? seqs.length : groups.get(k).length}</span></button>`).join('');
+  const chips = ['All', ...SPECIAL.filter((k) => lists.has(k)), ...[...lists.keys()].filter((k) => !SPECIAL.includes(k))];
+  if (!chips.includes(filterCat)) filterCat = 'All';
+  $('cats').hidden = chips.length <= 1;
+  $('cats').innerHTML = chips.map((k) => `<button class="cat" data-cat="${esc(k)}" aria-pressed="${k === filterCat}">${esc(k === 'All' ? 'All' : label(k))}<span class="ct">${k === 'All' ? seqs.length : lists.get(k).length}</span></button>`).join('');
 
   const q = query.toLowerCase();
   const match = (s) => !q || (s.displayName || s.name).toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q);
-  let html = '', shown = 0;
-  for (const [k, list] of groups) {
-    if (!list.length || (filterCat !== 'All' && filterCat !== k) || (SPECIAL.includes(k) && filterCat !== k)) continue;
-    let rows = list.filter(match);
-    if (voting) rows = [...rows].sort((a, b) => voteOf(b) - voteOf(a));
-    if (!rows.length) continue;
-    shown += rows.length;
-    const open = q || filterCat !== 'All' || openGroups[k] !== false;
-    html += `<details class="grp" data-grp="${esc(k)}" ${open ? 'open' : ''}><summary>${esc(label(k))}<span class="cnt">${rows.length}</span>
-      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="rows">`;
-    for (const s of rows) {
-      const off = isUnavailable(s) || p.viewerPageViewOnly;
-      const isMine = mine.includes(s.name);
-      const hint = off && !p.viewerPageViewOnly ? `<em>${(s.visibilityCount ?? 0) > 0 ? 'Available again soon' : 'Back next show'}</em>` : (isMine ? '<em>In line ✓</em>' : '');
-      html += `<button class="row${off ? ' off' : ''}${isMine ? ' mine' : ''}" data-name="${esc(s.name)}" ${off ? 'aria-disabled="true"' : ''}>
-        ${s.imageUrl ? `<img src="${esc(s.imageUrl)}" alt="" loading="lazy">` : '<span class="noimg"></span>'}
-        <span class="t"><b>${highlight(s.displayName || s.name)}</b><small>${highlight(s.artist || '')}</small>${hint}${badges(s)}</span>
-        ${voting ? `<span class="votes" aria-label="${voteOf(s)} votes">${voteOf(s)}</span>` : '<span class="act" aria-hidden="true">+</span>'}</button>`;
-    }
-    html += '</div></details>';
+  let rows = (filterCat === 'All' ? seqs : lists.get(filterCat)).filter(match);
+  if (!SPECIAL.includes(filterCat)) rows = [...rows].sort(byTitle);          // A–Z (Hot/Favorites stay ranked)
+  if (voting) rows = [...rows].sort((a, b) => voteOf(b) - voteOf(a));       // stable: ties stay A–Z
+  let html = '<div class="rows">';
+  for (const s of rows) {
+    const off = isUnavailable(s) || p.viewerPageViewOnly;
+    const isMine = mine.includes(s.name);
+    const hint = off && !p.viewerPageViewOnly ? `<em>${(s.visibilityCount ?? 0) > 0 ? 'Available again soon' : 'Back next show'}</em>` : (isMine ? '<em>In line ✓</em>' : '');
+    html += `<button class="row${off ? ' off' : ''}${isMine ? ' mine' : ''}" data-name="${esc(s.name)}" ${off ? 'aria-disabled="true"' : ''}>
+      ${s.imageUrl ? `<img src="${esc(s.imageUrl)}" alt="" loading="lazy">` : '<span class="noimg"></span>'}
+      <span class="t"><b>${highlight(s.displayName || s.name)}</b><small>${highlight(s.artist || '')}</small>${hint}${badges(s)}</span>
+      ${voting ? `<span class="votes" aria-label="${voteOf(s)} votes">${voteOf(s)}</span>` : '<span class="act" aria-hidden="true">+</span>'}</button>`;
   }
-  $('groups').innerHTML = shown ? html : `<p class="no-results">No songs match “${esc(query)}”.</p>`;
+  html += '</div>';
+  $('groups').innerHTML = rows.length ? html : `<p class="no-results">No songs match “${esc(query)}”.</p>`;
 }
 
 let glowUrl = null;
