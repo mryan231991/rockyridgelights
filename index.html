@@ -213,6 +213,8 @@
   .toast.err{background:rgba(200,40,50,.95)}
   .toast.info{background:rgba(40,40,60,.95)}
   .offline{font-size:13px;color:var(--muted)}
+  .demo-pill{position:fixed;top:calc(8px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:60;padding:6px 12px;border-radius:999px;
+    background:#fff;color:#111;font-size:12px;font-weight:700;letter-spacing:.04em;box-shadow:0 6px 20px rgba(0,0,0,.4);white-space:nowrap}
   .footer{font-size:13px;color:var(--muted)}
   .footer p{margin:6px 0 0}
 </style>
@@ -316,6 +318,7 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="demo-pill" id="demoPill" hidden>DEMO · requests aren't really sent</div>
 
 <script>
 /* ===================== SETTINGS (edit these) ===================== */
@@ -647,7 +650,31 @@ async function locationArgs() {
   }
   return {};
 }
+/* ---------- Demo mode: ?demo=1 (jukebox) or ?demo=vote. Fakes a running show; nothing is sent to RF. ---------- */
+const DEMO = new URLSearchParams(location.search).get('demo');
+let demo = null;
+function applyDemo(sh) {
+  const vis = (sh.sequences || []).filter((x) => x.visible);
+  if (!vis.length) return;
+  const rnd = () => vis[Math.floor(Math.random() * vis.length)];
+  if (!demo) demo = { now: vis[0], queue: [vis[3], vis[7]].filter(Boolean), t: Date.now(), votes: { [vis[2]?.name]: 3, [vis[5]?.name]: 1 } };
+  if (Date.now() - demo.t > 45000) { demo.now = demo.queue.shift() || rnd(); demo.t = Date.now(); if (DEMO === 'vote') demo.votes = {}; }
+  sh.preferences = { ...sh.preferences, viewerControlEnabled: true, viewerControlMode: DEMO === 'vote' ? 'VOTING' : 'JUKEBOX' };
+  sh.playingNowSequence = { ...demo.now }; sh.playingNow = demo.now.name;
+  sh.requests = DEMO === 'vote' ? [] : demo.queue.map((q, i) => ({ position: i + 1, sequence: q }));
+  sh.votes = Object.entries(demo.votes).filter(([n]) => n !== 'undefined').map(([n, v]) => ({ votes: v, sequence: { name: n } }));
+}
+function demoPick(name) {
+  const sq = seqByName(name);
+  if (DEMO === 'vote') { demo.votes[name] = (demo.votes[name] || 0) + 1; toast('🗳️ Vote counted! (demo)', 'ok'); }
+  else if (demo.queue.some((q) => q.name === name) || demo.now.name === name) { toast(ERRORS.SEQUENCE_REQUESTED(), 'err'); return; }
+  else { demo.queue.push(sq); mine = [...new Set([...mine, name])]; toast(S.okMsg + ' (demo)', 'ok'); }
+  applyDemo(show); renderedKey = ''; render();
+}
+$('demoPill').hidden = !DEMO;
+
 async function pick(name, rowEl) {
+  if (DEMO) { demoPick(name); return; }
   if (busy) return; busy = true; rowEl?.classList.add('busy');
   const voting = show.preferences?.viewerControlMode === 'VOTING';
   try {
@@ -693,6 +720,7 @@ async function refresh() {
     const res = await gql(SHOW_QUERY, { showSubdomain: SETTINGS.show });
     if (!res?.data?.getShow) throw new Error('no show');
     show = res.data.getShow; failures = 0; $('offline').hidden = true;
+    if (DEMO) applyDemo(show);
     const key = JSON.stringify(show);
     if (key !== renderedKey) { renderedKey = key; render(); }
   } catch (e) {
@@ -747,7 +775,7 @@ function badges(s) {
   return b;
 }
 
-(async () => { await refresh(); schedule(); if (show) recordVisit(); loadStats(); setInterval(loadStats, 5 * 60000); })();
+(async () => { await refresh(); schedule(); if (show && !DEMO) recordVisit(); loadStats(); setInterval(loadStats, 5 * 60000); })();
 </script>
 </body>
 </html>
