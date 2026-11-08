@@ -317,14 +317,15 @@ const SETTINGS = {
   show: 'rockyridgelights',
   api: 'https://remotefalcon.com/remote-falcon-viewer/graphql',
   pollMs: 4000,
-  showStart: '17:00',            // nightly start time (24h)
+  location: { lat: 39.1157, lon: -77.5636 },  // Leesburg, VA (for sunset times)
   showEndText: '9:00 PM',
   // Seasons. Dates are month-day; a season can wrap the new year.
   seasons: [
-    { theme: 'halloween', from: '09-01', to: '11-03', runs: '10-01', ends: '10-31',
+    // from/to = when the page wears this theme. runs/ends = show nights. start = 'sunset' or a 24h time like '17:00'.
+    { theme: 'halloween', from: '09-01', to: '11-03', runs: '10-01', ends: '10-31', start: 'sunset',
       eyebrow: '{year} Halloween Light Show', tagline: '8,000 individually controllable RGB lights. Pick a song … if you dare.',
       restLabel: 'The spirits are resting', icon: '🎃', okMsg: '👻 Added to the queue!' },
-    { theme: 'christmas', from: '11-04', to: '01-10', runs: '11-28', ends: '01-03',
+    { theme: 'christmas', from: '11-04', to: '01-10', runs: '11-28', ends: '01-03', start: '17:00',
       eyebrow: '{year} Christmas Light Show', tagline: '20,000 individually controllable RGB lights. Pick a song and watch the house light up.',
       restLabel: 'The lights are resting', icon: '🎄', okMsg: '🎁 Added to the queue!' }
   ],
@@ -351,22 +352,42 @@ function currentSeason(now = new Date()) {
 function seasonYear(s, now) { // year label: a season that wraps uses the year it started
   return (s && s.from > s.to && md(now) <= s.to) ? now.getFullYear() - 1 : now.getFullYear();
 }
-function dateFor(mmdd, year, timeStr) {
-  const [m, d] = mmdd.split('-').map(Number); const [h, mi] = timeStr.split(':').map(Number);
-  return new Date(year, m - 1, d, h, mi, 0);
+/** Sunset at SETTINGS.location on a calendar day (NOAA sunrise equation; within a few minutes). */
+function sunsetOn(y, m, d) {
+  const r = Math.PI / 180, { lat, lon } = SETTINGS.location;
+  const n = Math.round(Date.UTC(y, m, d) / 86400000 + 2440587.5 - 2451545.0 + 0.0008);
+  const J = n - lon / 360;
+  const M = (357.5291 + 0.98560028 * J) % 360;
+  const C = 1.9148 * Math.sin(M * r) + 0.02 * Math.sin(2 * M * r) + 0.0003 * Math.sin(3 * M * r);
+  const L = (M + C + 180 + 102.9372) % 360;
+  const Jt = 2451545.0 + J + 0.0053 * Math.sin(M * r) - 0.0069 * Math.sin(2 * L * r);
+  const dec = Math.asin(Math.sin(L * r) * Math.sin(23.4397 * r));
+  const w = Math.acos((Math.sin(-0.833 * r) - Math.sin(lat * r) * Math.sin(dec)) / (Math.cos(lat * r) * Math.cos(dec)));
+  const t = new Date((Jt + w / (2 * Math.PI) - 2440587.5) * 86400000);
+  t.setSeconds(0, 0); return t;
 }
-/** Next show start: today/tomorrow at showStart while the season runs, else opening night. */
+/** Show start on a calendar day for a season: sunset or a fixed time. */
+function startOn(s, y, m, d) {
+  if (s.start === 'sunset') return sunsetOn(y, m, d);
+  const [h, mi] = s.start.split(':').map(Number);
+  return new Date(y, m, d, h, mi, 0);
+}
+function mmddToYMD(mmdd, year) { const [m, d] = mmdd.split('-').map(Number); return [year, m - 1, d]; }
+/** Next show start: today/tomorrow while the season runs, else opening night; null after the last night. */
 function nextShowStart(s, now = new Date()) {
   if (!s) return null;
   const y = seasonYear(s, now);
-  const open = dateFor(s.runs, y, SETTINGS.showStart);
-  let close = dateFor(s.ends, s.runs > s.ends ? y + 1 : y, '23:59');
+  const open = startOn(s, ...mmddToYMD(s.runs, y));
+  const [cy, cm, cd] = mmddToYMD(s.ends, s.runs > s.ends ? y + 1 : y);
+  const close = new Date(cy, cm, cd, 23, 59, 0);
   if (now < open) return open;
   if (now > close) return null;
-  let next = dateFor(md(now), now.getFullYear(), SETTINGS.showStart);
-  if (now >= next) next.setDate(next.getDate() + 1);
+  let next = startOn(s, now.getFullYear(), now.getMonth(), now.getDate());
+  if (now >= next) { const t = new Date(now); t.setDate(t.getDate() + 1); next = startOn(s, t.getFullYear(), t.getMonth(), t.getDate()); }
   return next > close ? null : next;
 }
+let restDates = '';
+const fmtTime = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
 // Preview another season by adding ?theme=halloween (or christmas) to the URL.
 const forcedTheme = new URLSearchParams(location.search).get('theme');
@@ -381,7 +402,9 @@ $('fxSnow').hidden = S.theme !== 'christmas';
 $('fxBats').hidden = S.theme !== 'halloween';
 if (season) {
   const fmt = (mmdd) => new Date(2000, +mmdd.slice(0, 2) - 1, +mmdd.slice(3)).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-  $('restText').textContent = `Nightly 5:00 to ${SETTINGS.showEndText}, ${fmt(season.runs)} through ${fmt(season.ends)}. Song requests open when the show starts.`;
+  const startText = season.start === 'sunset' ? 'sunset' : fmtTime(startOn(season, 2000, 0, 1));
+  restDates = `${fmt(season.runs)} through ${fmt(season.ends)}`;
+  $('restText').textContent = `Nightly from ${startText} to ${SETTINGS.showEndText}, ${fmt(season.runs)} through ${fmt(season.ends)}. Song requests open when the show starts.`;
 } else {
   $('restTitle').textContent = 'Thanks for watching!';
   $('restCd').hidden = true;
@@ -408,6 +431,10 @@ function tick() {
       $('rd').parentElement.hidden = p.d === 0;
       $('rd').textContent = p.d; $('rh').textContent = pad(p.h); $('rm').textContent = pad(p.m); $('rs').textContent = pad(p.s);
       $('restTitle').textContent = (next - now) < 60000 ? 'Starting any moment' : 'Next show in';
+      if (season.start === 'sunset') {
+        const day = next.toDateString() === now.toDateString() ? 'tonight' : next.toLocaleDateString('en-US', { weekday: 'long' });
+        $('restText').textContent = `Starts at sunset, about ${fmtTime(next)} ${day}. Nightly until ${SETTINGS.showEndText}, ${restDates}. Song requests open when the show starts.`;
+      }
     } else {
       $('restCd').hidden = true; $('restTitle').textContent = 'That’s a wrap!';
       $('restText').textContent = 'Thanks for a great season. See you next year!';
