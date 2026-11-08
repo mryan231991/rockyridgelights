@@ -189,6 +189,11 @@
   .row .t b{display:block;font-size:16px;font-weight:600;line-height:1.25}
   .row .t small{display:block;font-size:13px;font-weight:500;color:var(--muted);margin-top:2px}
   .row .t em{display:block;font-style:normal;font-size:12px;font-weight:600;color:var(--gold);margin-top:3px}
+  .badge{display:inline-block;margin:4px 6px 0 0;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;
+    background:rgba(255,255,255,.12);color:var(--text)}
+  .badge.fav{background:rgba(245,196,81,.2);color:var(--gold)}
+  .badge.hot{background:rgba(255,90,60,.22);color:#FFB199}
+  .season-stat{margin:10px 0 0;font-size:13px;color:var(--muted)}
   .row .act{width:36px;height:36px;border-radius:50%;background:#fff;color:#111;font-size:22px;font-weight:600;line-height:36px;text-align:center}
   .row .votes{min-width:44px;padding:6px 10px;border-radius:12px;background:rgba(0,0,0,.3);font-family:Fraunces,Georgia,serif;font-size:20px;font-weight:700;color:var(--gold);text-align:center}
   .row.off{opacity:.45;cursor:default}
@@ -278,6 +283,7 @@
     <p class="label" id="queueLabel">Coming up</p>
     <p class="empty-msg" id="queueEmpty">No requests yet. Be the first!</p>
     <ol class="q" id="queue"></ol>
+    <p class="season-stat" id="seasonStat" hidden></p>
   </section>
 
   <section class="card" id="howCard" hidden>
@@ -542,6 +548,8 @@ function render() {
         <span class="eta">${isMine ? 'Yours · ' : ''}${eta}</span></li>`;
     }).join('');
     $('queueLabel').textContent = reqs.length ? `Coming up · ${reqs.length} in line` : 'Coming up';
+    $('seasonStat').hidden = !pop.total;
+    $('seasonStat').textContent = pop.total ? `${pop.total.toLocaleString()} song${pop.total === 1 ? '' : 's'} requested this season${pop.tonight ? ` · ${pop.tonight} tonight` : ''}` : '';
   }
   renderSongs(voting);
 }
@@ -557,19 +565,26 @@ function renderSongs(voting) {
   order.forEach((c) => groups.set(c, []));
   seqs.forEach((s) => { const k = s.category && groups.has(s.category) ? s.category : (s.category || '__more'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(s); });
   const hasCats = order.length > 0;
-  const label = (k) => k === '__more' ? (hasCats ? 'More songs' : 'All songs') : k;
+  const label = (k) => k === '__more' ? (hasCats ? 'More songs' : 'All songs') : k === '__fav' ? '⭐ Fan favorites' : k === '__hot' ? '🔥 Hot tonight' : k;
+  // Special filters: Hot tonight + Fan favorites (only shown when picked, never in "All")
+  const special = (m) => seqs.filter((x) => m.has(x.name)).sort((a, b) => m.get(b.name) - m.get(a.name));
+  const hotList = special(pop.hot), favList = special(pop.fav);
+  const SPECIAL = ['__hot', '__fav'];
+  if (hotList.length) groups.set('__hot', hotList);
+  if (favList.length) groups.set('__fav', favList);
 
-  // category chips
-  const cats = ['All', ...[...groups.keys()].filter((k) => groups.get(k).length)];
+  // filter chips: All, Hot tonight, Fan favorites, then categories
+  const keys = [...groups.keys()].filter((k) => groups.get(k).length);
+  const cats = ['All', ...SPECIAL.filter((k) => keys.includes(k)), ...keys.filter((k) => !SPECIAL.includes(k))];
   if (!cats.includes(filterCat)) filterCat = 'All';
-  $('cats').hidden = cats.length <= 2;
+  $('cats').hidden = cats.length <= 2 && !keys.some((k) => SPECIAL.includes(k));
   $('cats').innerHTML = cats.map((k) => `<button class="cat" data-cat="${esc(k)}" aria-pressed="${k === filterCat}">${esc(k === 'All' ? 'All' : label(k))}<span class="ct">${k === 'All' ? seqs.length : groups.get(k).length}</span></button>`).join('');
 
   const q = query.toLowerCase();
   const match = (s) => !q || (s.displayName || s.name).toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q);
   let html = '', shown = 0;
   for (const [k, list] of groups) {
-    if (!list.length || (filterCat !== 'All' && filterCat !== k)) continue;
+    if (!list.length || (filterCat !== 'All' && filterCat !== k) || (SPECIAL.includes(k) && filterCat !== k)) continue;
     let rows = list.filter(match);
     if (voting) rows = [...rows].sort((a, b) => voteOf(b) - voteOf(a));
     if (!rows.length) continue;
@@ -583,7 +598,7 @@ function renderSongs(voting) {
       const hint = off && !p.viewerPageViewOnly ? `<em>${(s.visibilityCount ?? 0) > 0 ? 'Available again soon' : 'Back next show'}</em>` : (isMine ? '<em>In line ✓</em>' : '');
       html += `<button class="row${off ? ' off' : ''}${isMine ? ' mine' : ''}" data-name="${esc(s.name)}" ${off ? 'aria-disabled="true"' : ''}>
         ${s.imageUrl ? `<img src="${esc(s.imageUrl)}" alt="" loading="lazy">` : '<span class="noimg"></span>'}
-        <span class="t"><b>${highlight(s.displayName || s.name)}</b><small>${highlight(s.artist || '')}</small>${hint}</span>
+        <span class="t"><b>${highlight(s.displayName || s.name)}</b><small>${highlight(s.artist || '')}</small>${hint}${badges(s)}</span>
         ${voting ? `<span class="votes" aria-label="${voteOf(s)} votes">${voteOf(s)}</span>` : '<span class="act" aria-hidden="true">+</span>'}</button>`;
     }
     html += '</div></details>';
@@ -697,7 +712,31 @@ async function recordVisit() {
   } catch {}
 }
 
-(async () => { await refresh(); schedule(); if (show) recordVisit(); })();
+/* ---------- Popularity (stats.json is written nightly by the GitHub request recorder) ---------- */
+let pop = { fav: new Map(), hot: new Map(), total: 0, tonight: 0 };
+async function loadStats() {
+  try {
+    const r = await fetch('stats.json?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
+    if (!r.ok) return;
+    const st = await r.json();
+    const now = new Date();
+    const sk = season ? `${seasonYear(season, now)}-${season.theme}` : null;
+    const se = sk && st.seasons?.[sk];
+    const n6 = new Date(now.getTime() - 6 * 3600e3);
+    const nk = `${n6.getFullYear()}-${pad(n6.getMonth() + 1)}-${pad(n6.getDate())}`;
+    const top = (obj, n, min) => new Map(Object.entries(obj || {}).filter(([, c]) => c >= min).sort((a, b) => b[1] - a[1]).slice(0, n));
+    pop = { fav: top(se?.requests, 5, 3), hot: top(se?.nights?.[nk]?.requests, 3, 2), total: se?.totalRequests || 0, tonight: se?.nights?.[nk]?.totalRequests || 0 };
+    if (show) render();
+  } catch {}
+}
+function badges(s) {
+  let b = '';
+  if (pop.hot.has(s.name)) b += `<span class="badge hot">🔥 Hot tonight</span>`;
+  if (pop.fav.has(s.name)) b += `<span class="badge fav">⭐ Fan favorite · ${pop.fav.get(s.name)} requests</span>`;
+  return b;
+}
+
+(async () => { await refresh(); schedule(); if (show) recordVisit(); loadStats(); setInterval(loadStats, 5 * 60000); })();
 </script>
 </body>
 </html>

@@ -1,0 +1,32 @@
+name: Record song requests
+
+on:
+  schedule:
+    # 21:30 UTC = 4:30 PM EST / 5:30 PM EDT, every day Sep–Jan. GitHub may start it a few minutes late.
+    - cron: '30 21 * 9-12,1 *'
+  workflow_dispatch:
+    inputs:
+      max_hours:
+        description: 'How many hours to record (max 5.6)'
+        default: '5.6'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: recorder
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Record until the show ends
+        run: node scripts/recorder.mjs
+        env:
+          MAX_HOURS: ${{ github.event.inputs.max_hours || '5.6' }}
