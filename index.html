@@ -349,7 +349,7 @@ const SETTINGS = {
       statMonths: ['10'] },   // months whose request stats count toward Fan favorites
     { theme: 'christmas', from: '11-04', to: '01-10', runs: '11-28', ends: '01-03', start: '17:00',
       eyebrow: '{year} Christmas Light Show', tagline: '20,000 individually controllable RGB lights. Pick a song and watch the house light up.',
-      restLabel: 'The lights are resting', icon: '🎄', okMsg: '🎁 Added to the queue!',
+      restLabel: 'The lights are resting', icon: '🎄', okMsg: '🎁 Added to the queue!', featuredCategories: ['Christmas'],
       statMonths: ['12', '01'] }  // December + the January after it
   ],
   offSeason: { theme: 'christmas', eyebrow: 'Rocky Ridge Lights', tagline: 'Thanks for a great season! See you next year.',
@@ -594,6 +594,7 @@ function renderSongs(voting) {
   // category chips: Remote Falcon's category order first, then any others, A–Z
   const catNames = [];
   const addCat = (c) => { if (!catNames.some((x) => x.toLowerCase() === c.toLowerCase())) catNames.push(c); };
+  (season?.featuredCategories || []).forEach(addCat);   // e.g. Christmas chip first in Christmas season
   catOrder().forEach((n) => (n || '').split(',').map((c) => c.trim()).filter(Boolean).forEach(addCat));
   [...new Set(seqs.flatMap(catsOf))].sort((a, b) => a.localeCompare(b)).forEach(addCat);
   catNames.forEach((c) => { const l = seqs.filter((s) => catsOf(s).some((x) => x.toLowerCase() === c.toLowerCase())); if (l.length) lists.set(c, l); });
