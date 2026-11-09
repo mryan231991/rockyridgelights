@@ -111,6 +111,8 @@
   .tips-card{padding:16px 18px}
   .notice{display:flex;gap:12px;align-items:flex-start;text-align:left;padding:14px 18px;border-color:var(--gold);font-weight:500;line-height:1.45}
   .notice .ni{font-size:20px;line-height:1.2}
+  .len{white-space:nowrap}
+  .len.long{color:var(--gold);font-weight:600}
   .recent{margin:14px 0 0;padding:12px 0 0;border-top:1px solid var(--edge);text-align:left}
   .recent .label{margin-bottom:6px}
   .recent ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
@@ -578,6 +580,12 @@ function render() {
 function catsOf(s) { return (s.category || '').split(',').map((c) => c.trim()).filter(Boolean); }
 const byTitle = (a, b) => (a.displayName || a.name).localeCompare(b.displayName || b.name, undefined, { numeric: true, sensitivity: 'base' });
 
+// song length next to the artist; long ones (6+ min) get called out
+function lenTag(sec) {
+  sec = Math.round(+sec || 0); if (!sec) return '';
+  const t = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  return sec >= 360 ? ` <span class="len long">· ⏱ ${t}</span>` : ` <span class="len">· ${t}</span>`;
+}
 function renderSongs(voting) {
   const p = show.preferences || {};
   const seqs = (show.sequences || []).filter((s) => s.visible);
@@ -616,7 +624,7 @@ function renderSongs(voting) {
     const hint = off && !p.viewerPageViewOnly ? `<em>${(s.visibilityCount ?? 0) > 0 ? 'Available again soon' : 'Back next show'}</em>` : (isMine ? '<em>In line ✓</em>' : '');
     html += `<button class="row${off ? ' off' : ''}${isMine ? ' mine' : ''}" data-name="${esc(s.name)}" ${off ? 'aria-disabled="true"' : ''}>
       ${s.imageUrl ? `<img src="${esc(s.imageUrl)}" alt="" loading="lazy">` : '<span class="noimg"></span>'}
-      <span class="t"><b>${highlight(s.displayName || s.name)}</b><small>${highlight(s.artist || '')}</small>${hint}${badges(s)}</span>
+      <span class="t"><b>${highlight(s.displayName || s.name)}</b><small>${highlight(s.artist || '')}${lenTag(s.duration)}</small>${hint}${badges(s)}</span>
       ${voting ? `<span class="votes" aria-label="${voteOf(s)} votes">${voteOf(s)}</span>` : '<span class="act" aria-hidden="true">+</span>'}</button>`;
   }
   html += '</div>';
