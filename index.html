@@ -476,6 +476,7 @@ const SHOW_QUERY = `query GetShowForViewer($showSubdomain: String!) { getShow(sh
   preferences { viewerControlEnabled viewerPageViewOnly viewerControlMode jukeboxDepth locationCheckMethod locationCode
     nightlyPlayLimit lastPlayCountedAt analyticsBetaOptIn }
   sequences { name displayName duration visible index order imageUrl visibilityCount type group category artist playsToday }
+  psaSequences { name }
   categories { name displayOrder nightlyPlayLimit }
   requests { position sequence { name displayName imageUrl artist } }
   votes { votes sequence { name } sequenceGroup { name } }
@@ -509,6 +510,8 @@ function isUnavailable(seq) {
   if (!last || last < Date.now() - 6 * 3600e3) return false;
   return (seq.playsToday ?? 0) >= limit;
 }
+// Songs viewers can see: marked Visible in RF and not set up as a PSA (Special Roles).
+function listable(sh, s) { return s.visible && !(sh.psaSequences || []).some((p) => p.name === s.name); }
 function seqByName(name) { return (show.sequences || []).find((s) => s.name === name); }
 function catOrder() {
   return (show.categories || []).map((c, i) => ({ name: c.name, k: typeof c.displayOrder === 'number' ? c.displayOrder : i, i }))
@@ -588,7 +591,7 @@ function lenTag(sec) {
 }
 function renderSongs(voting) {
   const p = show.preferences || {};
-  const seqs = (show.sequences || []).filter((s) => s.visible);
+  const seqs = (show.sequences || []).filter((s) => listable(show, s));
   const voteOf = (s) => { const v = (show.votes || []).find((v) => v.sequence?.name === s.name || (s.group && v.sequenceGroup?.name === s.group)); return v ? v.votes : 0; };
 
   // Filter lists: one flat list per filter, no sections
@@ -706,7 +709,7 @@ async function locationArgs() {
 /* ---------- Demo mode: ?demo=1 (jukebox) or ?demo=vote. Fakes a running show; nothing is sent to RF. ---------- */
 let demo = null;
 function applyDemo(sh) {
-  const vis = (sh.sequences || []).filter((x) => x.visible);
+  const vis = (sh.sequences || []).filter((x) => listable(sh, x));
   if (!vis.length) return;
   const rnd = () => vis[Math.floor(Math.random() * vis.length)];
   if (!demo) demo = { now: vis[0], queue: [vis[3], vis[7]].filter(Boolean), t: Date.now(), votes: { [vis[2]?.name]: 3, [vis[5]?.name]: 1 } };
