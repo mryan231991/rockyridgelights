@@ -620,10 +620,12 @@ function renderSongs(voting) {
   let rows = (filterCat === 'All' ? seqs : lists.get(filterCat)).filter(match);
   if (!SPECIAL.includes(filterCat)) rows = [...rows].sort(byTitle);          // A–Z (Hot/Favorites stay ranked)
   if (voting) rows = [...rows].sort((a, b) => voteOf(b) - voteOf(a));       // stable: ties stay A–Z
+  // "In line" = this phone asked for it AND it's still waiting in the queue (not played yet).
+  const queued = new Set((show.requests || []).map((r) => r.sequence?.name).filter(Boolean));
   let html = '<div class="rows">';
   for (const s of rows) {
     const off = isUnavailable(s) || p.viewerPageViewOnly;
-    const isMine = mine.includes(s.name);
+    const isMine = mine.includes(s.name) && queued.has(s.name);
     const hint = off && !p.viewerPageViewOnly ? `<em>${(s.visibilityCount ?? 0) > 0 ? 'Available again soon' : 'Back next show'}</em>` : (isMine ? '<em>In line ✓</em>' : '');
     html += `<button class="row${off ? ' off' : ''}${isMine ? ' mine' : ''}" data-name="${esc(s.name)}" ${off ? 'aria-disabled="true"' : ''}>
       ${s.imageUrl ? `<img src="${esc(s.imageUrl)}" alt="" loading="lazy">` : '<span class="noimg"></span>'}
