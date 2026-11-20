@@ -209,6 +209,8 @@
   .row.off{opacity:.45;cursor:default}
   .row.off .act{visibility:hidden}
   .row.mine{border-color:var(--gold)}
+  .row .t em.taken{color:var(--muted)}
+  .row.taken .act{opacity:.35}
   .row.busy .act{animation:pulse .8s ease-in-out infinite}
   @keyframes pulse{50%{opacity:.4}}
   .no-results{padding:24px 8px;color:var(--muted);text-align:center}
@@ -620,14 +622,19 @@ function renderSongs(voting) {
   let rows = (filterCat === 'All' ? seqs : lists.get(filterCat)).filter(match);
   if (!SPECIAL.includes(filterCat)) rows = [...rows].sort(byTitle);          // A–Z (Hot/Favorites stay ranked)
   if (voting) rows = [...rows].sort((a, b) => voteOf(b) - voteOf(a));       // stable: ties stay A–Z
-  // "In line" = this phone asked for it AND it's still waiting in the queue (not played yet).
+  // Queue status (jukebox only): "In line ✓" = this phone's request still waiting; anyone else's
+  // queued song, or the song playing now, is marked so people don't try to request it again.
   const queued = new Set((show.requests || []).map((r) => r.sequence?.name).filter(Boolean));
+  const nowName = show.playingNowSequence?.name || show.playingNow;
   let html = '<div class="rows">';
   for (const s of rows) {
     const off = isUnavailable(s) || p.viewerPageViewOnly;
-    const isMine = mine.includes(s.name) && queued.has(s.name);
-    const hint = off && !p.viewerPageViewOnly ? `<em>${(s.visibilityCount ?? 0) > 0 ? 'Available again soon' : 'Back next show'}</em>` : (isMine ? '<em>In line ✓</em>' : '');
-    html += `<button class="row${off ? ' off' : ''}${isMine ? ' mine' : ''}" data-name="${esc(s.name)}" ${off ? 'aria-disabled="true"' : ''}>
+    const isMine = !voting && mine.includes(s.name) && queued.has(s.name);
+    const taken = !voting && !off && !isMine && (queued.has(s.name) || s.name === nowName);
+    const hint = off && !p.viewerPageViewOnly ? `<em>${(s.visibilityCount ?? 0) > 0 ? 'Available again soon' : 'Back next show'}</em>`
+      : isMine ? '<em>In line ✓</em>'
+      : taken ? `<em class="taken">${s.name === nowName ? 'Playing now ♪' : 'Already in line'}</em>` : '';
+    html += `<button class="row${off ? ' off' : ''}${isMine ? ' mine' : ''}${taken ? ' taken' : ''}" data-name="${esc(s.name)}" ${off ? 'aria-disabled="true"' : ''}>
       ${s.imageUrl ? `<img src="${esc(s.imageUrl)}" alt="" loading="lazy">` : '<span class="noimg"></span>'}
       <span class="t"><b>${highlight(s.displayName || s.name)}</b><small>${highlight(s.artist || '')}${lenTag(s.duration)}</small>${hint}${badges(s)}</span>
       ${voting ? `<span class="votes" aria-label="${voteOf(s)} votes">${voteOf(s)}</span>` : '<span class="act" aria-hidden="true">+</span>'}</button>`;
@@ -757,6 +764,8 @@ async function pick(name, rowEl) {
 /* ---------- Events ---------- */
 $('groups').addEventListener('click', (e) => {
   const row = e.target.closest('.row'); if (!row || row.classList.contains('off')) return;
+  if (row.classList.contains('mine')) { toast('That one’s already in line for you ✓', 'ok'); return; }
+  if (row.classList.contains('taken')) { toast(row.querySelector('em.taken')?.textContent.startsWith('Playing') ? 'That song is playing right now 🎶' : 'Someone already picked that one — it’s in line!', 'ok'); return; }
   pick(row.dataset.name, row);
 });
 $('groups').addEventListener('toggle', (e) => {
