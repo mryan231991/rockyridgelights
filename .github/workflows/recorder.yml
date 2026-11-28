@@ -2,8 +2,11 @@ name: Record song requests
 
 on:
   schedule:
-    # 21:30 UTC = 4:30 PM EST / 5:30 PM EDT, every day Sep–Jan. GitHub may start it a few minutes late.
-    - cron: '30 21 * 9-12,1 *'
+    # Hourly from 20:07 to 03:07 UTC = 3:07 PM to 10:07 PM EST, every day Sep–Jan.
+    # GitHub often starts scheduled runs hours late, so several tries cover the show. The concurrency
+    # group below keeps one run at a time; a run that finds the night already over exits right away.
+    - cron: '7 20-23 * 9-12,1 *'
+    - cron: '7 0-3 * 9-12,1 *'
   workflow_dispatch:
     inputs:
       max_hours:

@@ -11,7 +11,7 @@ const POLL_MS = Number(process.env.POLL_MS || 15_000);
 const SAVE_EVERY_MS = 10 * 60_000;          // commit at most every 10 minutes (Pages soft limit ~10 builds/hr)
 const MAX_RUN_MS = (Number(process.env.MAX_HOURS || 5.6)) * 3600_000; // Actions jobs stop at 6h
 const OFF_GRACE_MS = Number(process.env.OFF_GRACE_MS || 20 * 60_000);          // stop 20 min after the show turns off
-const NOT_STARTED_MS = 3 * 3600_000;        // stop if the show never turns on within 3h
+const GIVE_UP_HM = 22 * 60 + 30;          // if the show hasn't turned on by 10:30 PM Eastern, the night is over
 const FILE = 'stats.json';
 const TZ = 'America/New_York';
 
@@ -24,6 +24,10 @@ const QUERY = `query G($s: String!) { getShow(showSubdomain: $s) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const etParts = (d) => Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false })
   .formatToParts(d).map((p) => [p.type, p.value]));
+/** Minutes after midnight, Eastern. */
+function etMinutes(d = new Date()) { const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d).map((x) => [x.type, x.value])); return +p.hour * 60 + +p.minute; }
+/** True from 10:30 PM to 6 AM Eastern: too late for a show that hasn't started. */
+const pastShow = () => { const m = etMinutes(); return m >= GIVE_UP_HM || m < 6 * 60; };
 /** Show night = Eastern date, rolling over at 6 AM so a show past midnight stays on one night. */
 function nightKey(d = new Date()) { const p = etParts(new Date(d.getTime() - 6 * 3600_000)); return `${p.year}-${p.month}-${p.day}`; }
 
@@ -89,7 +93,7 @@ while (Date.now() - started < MAX_RUN_MS) {
 
     if (on) { wasOn = true; offSince = null; }
     else if (wasOn) { offSince ??= Date.now(); if (Date.now() - offSince > OFF_GRACE_MS) break; }
-    else if (Date.now() - started > NOT_STARTED_MS) { console.log('show never turned on'); break; }
+    else if (pastShow()) { console.log('show is off and it is past 10:30 PM; nothing to record'); break; }
   } catch (e) {
     errors++; console.error('poll error', e.message);
   }
